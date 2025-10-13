@@ -1,0 +1,626 @@
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #1a1a1a;
+    color: #e0e0e0;
+    margin: 0;
+    padding: 20px;
+    transition: background-color 0.3s, color 0.3s;
+}
+
+h1 {
+    text-align: center;
+    color: #ffffff;
+}
+
+.container {
+    width: 100%;
+    max-width: 100%;
+}
+
+.search-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+#stock-input {
+    flex-grow: 1;
+    padding: 10px;
+    border: 1px solid #444;
+    border-radius: 5px;
+    font-size: 16px;
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+}
+
+#add-stock-btn {
+    padding: 10px 20px;
+    border: none;
+    background-color: #3498db;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+#add-stock-btn:hover {
+    background-color: #2980b9;
+}
+
+#reset-order-btn {
+    padding: 10px 20px;
+    border: none;
+    background-color: #e74c3c;
+    color: white;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background-color 0.3s;
+}
+
+#reset-order-btn:hover {
+    background-color: #c0392b;
+}
+
+#refresh-btn {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    margin-left: 10px;
+    transition: all 0.3s ease;
+}
+
+#refresh-btn:hover {
+    background-color: #218838;
+    transform: rotate(180deg);
+}
+
+#refresh-btn.updating {
+    background-color: #ffc107;
+    color: #000;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes priceUp {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+@keyframes priceDown {
+    0% { transform: scale(1); }
+    50% { transform: scale(0.9); }
+    100% { transform: scale(1); }
+}
+
+/* Piyasa Durumu Etiketleri */
+.market-status {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: bold;
+    z-index: 2;
+}
+
+.market-status.premarket { /* PRE badge */
+    background-color: #8e44ad;
+    color: #fff;
+}
+
+.market-status.postmarket { /* POST badge */
+    background-color: #d35400;
+    color: #fff;
+}
+
+/* Legacy removed: .prepost-line, .pp-label, .pp-value (artık kullanılmıyor) */
+
+/* Modern Kart Container */
+.stock-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 20px;
+    padding: 20px 0;
+}
+
+/* Modern Kart Tasarımı */
+.stock-card {
+    background: linear-gradient(135deg, #2d2d35 0%, #25252d 100%);
+    border-radius: 16px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    border: 1px solid #3a3a45;
+    overflow: hidden;
+}
+
+.stock-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3498db, #2ecc71);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.stock-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    border-color: #4a4a55;
+}
+
+.stock-card:hover::before {
+    opacity: 1;
+}
+
+.stock-card h2 {
+    margin: 0 0 12px 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: 0.5px;
+}
+
+.stock-price {
+    font-size: 28px;
+    font-weight: 700;
+    margin: 8px 0;
+    color: #ffffff;
+    line-height: 1.2;
+}
+
+.stock-change {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 4px 0;
+}
+
+.stock-change-percent {
+    font-size: 14px;
+    font-weight: 600;
+    opacity: 0.9;
+}
+
+.positive {
+    color: #2ecc71;
+}
+
+.negative {
+    color: #e74c3c;
+}
+
+/* Grafik Modalı */
+.modal {
+    display: none; /* Başlangıçta gizli */
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.6);
+    justify-content: center;
+    align-items: center;
+}
+
+.modal-content {
+    background-color: #2a2a2a;
+    margin: auto;
+    padding: 20px;
+    border-radius: 12px;
+    width: 98%;
+    max-width: 1400px;
+    position: relative;
+    border: 1px solid #444;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    height: 90vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #444;
+    padding-bottom: 10px;
+    margin-bottom: 15px;
+    flex-shrink: 0;
+}
+
+.modal-header h2 {
+    margin: 0;
+    color: #ffffff;
+}
+
+.close-btn {
+    color: #ccc;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close-btn:hover,
+.close-btn:focus {
+    color: #fff;
+}
+
+/* Modal Sekmeleri */
+.modal-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #333;
+    padding-bottom: 0;
+    flex-shrink: 0;
+}
+
+.tab-btn {
+    padding: 12px 24px;
+    background: transparent;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border-bottom: 3px solid transparent;
+    position: relative;
+    bottom: -2px;
+}
+
+.tab-btn:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tab-btn.active {
+    color: #3498db;
+    border-bottom-color: #3498db;
+}
+
+.tab-content {
+    display: none;
+    flex: 1;
+    overflow-y: auto;
+    animation: fadeIn 0.3s ease;
+}
+
+.tab-content.active {
+    display: flex;
+    flex-direction: column;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Zaman Dilimi Butonları */
+.timeframe-buttons {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.timeframe-btn {
+    padding: 8px 16px;
+    border: 1px solid #444;
+    background-color: #2a2a2a;
+    color: #cccccc;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    min-width: 40px;
+}
+
+.timeframe-btn:hover {
+    background-color: #3a3a3a;
+    border-color: #555;
+    color: #ffffff;
+}
+
+.timeframe-btn.active {
+    background-color: #3498db;
+    border-color: #3498db;
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+}
+
+/* TradingView Widget */
+.chart-container {
+    flex: 1;
+    min-height: 600px;
+    overflow: hidden;
+}
+
+.tradingview-widget {
+    width: 100%;
+    height: 100%;
+    min-height: 600px;
+}
+
+/* Drag & Drop Stilleri */
+.sortable-ghost {
+    opacity: 0.4;
+    background-color: #f0f0f0;
+    border: 2px dashed #ccc;
+}
+
+.sortable-chosen {
+    transform: scale(1.05);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+}
+
+.sortable-drag {
+    transform: rotate(5deg);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+}
+
+.stock-card {
+    cursor: grab;
+}
+
+.stock-card:active {
+    cursor: grabbing;
+}
+
+/* Favori Yıldızı */
+.favorite-star {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 18px;
+    cursor: pointer;
+    color: #ffd700;
+    transition: transform 0.2s, color 0.2s;
+    z-index: 10;
+}
+
+.favorite-star:hover {
+    transform: scale(1.2);
+    color: #ffed4e;
+}
+
+.favorite-star.active {
+    color: #ffd700;
+    text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+}
+
+.favorite-star.inactive {
+    color: #666;
+}
+
+.favorite-star.inactive:hover {
+    color: #ffd700;
+}
+
+/* Teknik Analiz Paneli */
+.ta-panel {
+    background: linear-gradient(135deg, #1e2126 0%, #252830 100%);
+    border-radius: 12px;
+    padding: 20px;
+    margin: 15px 0;
+    border: 1px solid #333;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.ta-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #333;
+}
+
+.ta-trend {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.3em;
+    font-weight: bold;
+}
+
+.trend-bullish { color: #00ff00; }
+.trend-bearish { color: #ff4444; }
+.trend-neutral { color: #ffaa00; }
+
+.ta-recommendations {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.ta-rec-box {
+    background: #2a2d35;
+    padding: 15px;
+    border-radius: 8px;
+    border-left: 4px solid;
+}
+
+.ta-rec-box.buy { border-left-color: #00ff00; }
+.ta-rec-box.sell { border-left-color: #ff4444; }
+
+.ta-rec-label {
+    font-size: 0.85em;
+    color: #999;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ta-rec-value {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: #fff;
+}
+
+.ta-indicators {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.ta-indicator {
+    background: #2a2d35;
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid #3a3d45;
+    position: relative;
+}
+
+/* Tooltip Container */
+.tooltip-container {
+    position: relative;
+}
+
+.tooltip-container .info-icon {
+    font-size: 0.8em;
+    color: #666;
+    cursor: help;
+    margin-left: 4px;
+    transition: color 0.2s;
+}
+
+.tooltip-container .info-icon:hover {
+    color: #3498db;
+}
+
+.tooltip-container .tooltip {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    z-index: 1000;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #1a1d23;
+    color: #fff;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 0.8em;
+    white-space: normal;
+    width: 220px;
+    margin-bottom: 8px;
+    border: 1px solid #3498db;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    transition: opacity 0.3s, visibility 0.3s;
+    line-height: 1.4;
+}
+
+.tooltip-container .tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #3498db;
+}
+
+.tooltip-container:hover .tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+.ta-ind-name {
+    font-size: 0.8em;
+    color: #888;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+}
+
+.ta-ind-value {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #fff;
+}
+
+.ta-signals {
+    background: #2a2d35;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #3a3d45;
+}
+
+.ta-signals-title {
+    font-size: 1em;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 10px;
+}
+
+.ta-signal-item {
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background: #1e2126;
+    border-radius: 6px;
+    border-left: 3px solid #3498db;
+    font-size: 0.9em;
+}
+
+.rsi-oversold { color: #00ff00; }
+.rsi-overbought { color: #ff4444; }
+.rsi-neutral { color: #ffaa00; }
+
+.support-resistance {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.sr-box {
+    background: #2a2d35;
+    padding: 12px;
+    border-radius: 8px;
+}
+
+.sr-label {
+    font-size: 0.8em;
+    color: #888;
+    margin-bottom: 5px;
+}
+
+.sr-value {
+    font-size: 1.1em;
+    font-weight: bold;
+}
+
+.sr-value.support { color: #00ff00; }
+.sr-value.resistance { color: #ff4444; }

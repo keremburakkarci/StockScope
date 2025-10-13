@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hisse Senedi Takip</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+</head>
+<body>
+    <h1>Hisse Senedi Takip Uygulaması</h1>
+    <div class="container">
+                <div class="search-container">
+                    <input type="text" id="stock-input" placeholder="Hisse Kodu Girin (örn: THYAO)">
+                    <button id="add-stock-btn">Ekle</button>
+                    <button id="reset-order-btn">Sıralamayı Sıfırla</button>
+                    <button id="refresh-btn" title="Fiyatları Yenile">🔄</button>
+                </div>
+        <div id="stock-container" class="stock-container">
+            <!-- Hisse senetleri buraya eklenecek -->
+        </div>
+    </div>
+
+    <!-- Debug / Observation Panel -->
+    <div id="debug-panel" class="debug-panel" style="display:none;">
+        <div class="debug-header">
+            <span>Pre / Post Market Gözlem Paneli</span>
+            <button id="close-debug" class="close-debug">✖</button>
+        </div>
+        <div class="debug-body">
+            <table id="debug-table">
+                <thead>
+                    <tr>
+                        <th>Sembol</th>
+                        <th>State</th>
+                        <th>Pre</th>
+                        <th>Kaynak</th>
+                        <th>Post</th>
+                        <th>Kaynak</th>
+                        <th>Regular</th>
+                        <th>Prev Close</th>
+                        <th>Δ%</th>
+                        <th>Güncelleme</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="debug-footer">
+            <small>Kaynak Rozetleri: Y = Yahoo API, ~ = Türetilmiş (barlardan). Otomatik 15 sn'de yenilenir.</small>
+        </div>
+    </div>
+
+    <!-- Grafik Modalı -->
+    <div id="chart-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modal-stock-symbol"></h2>
+                <span class="close-btn">&times;</span>
+            </div>
+            
+            <!-- Sekme Butonları -->
+            <div class="modal-tabs">
+                <button class="tab-btn active" data-tab="chart">📈 Grafik</button>
+                <button class="tab-btn" data-tab="analysis">📊 Analiz</button>
+            </div>
+            
+            <!-- Grafik Sekmesi -->
+            <div id="chart-tab" class="tab-content active">
+                <div class="timeframe-buttons">
+                    <button class="timeframe-btn active" data-period="1d">1D</button>
+                    <button class="timeframe-btn" data-period="5d">5D</button>
+                    <button class="timeframe-btn" data-period="1mo">1M</button>
+                    <button class="timeframe-btn" data-period="3mo">3M</button>
+                    <button class="timeframe-btn" data-period="6mo">6M</button>
+                    <button class="timeframe-btn" data-period="1y">1Y</button>
+                    <button class="timeframe-btn" data-period="2y">2Y</button>
+                    <button class="timeframe-btn" data-period="5y">5Y</button>
+                </div>
+                <div class="chart-container">
+                    <div id="tradingview-widget" class="tradingview-widget"></div>
+                </div>
+            </div>
+            
+            <!-- Analiz Sekmesi -->
+            <div id="analysis-tab" class="tab-content">
+                <div id="technical-analysis-panel" class="ta-panel">
+                    <!-- JavaScript ile doldurulacak -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script_new.js"></script>
+    <style>
+        .debug-panel {position:fixed; right:12px; bottom:12px; width:780px; max-height:60vh; background:#1e1e24; border:1px solid #444; border-radius:8px; box-shadow:0 4px 18px rgba(0,0,0,.4); display:flex; flex-direction:column; font-family:system-ui,Arial; z-index:9999;}
+        .debug-panel table {width:100%; border-collapse:collapse; font-size:12px;}
+        .debug-panel th, .debug-panel td {padding:4px 6px; border-bottom:1px solid #333; text-align:left; white-space:nowrap;}
+        .debug-panel thead {background:#2a2a33; position:sticky; top:0;}
+        .debug-header {display:flex; justify-content:space-between; align-items:center; padding:6px 10px; background:#2d2d35; border-bottom:1px solid #444; font-weight:600; font-size:13px;}
+        .debug-body {overflow:auto;}
+        .close-debug {background:transparent; color:#bbb; border:none; cursor:pointer; font-size:14px;}
+        .close-debug:hover {color:#fff;}
+        .debug-footer {padding:4px 8px; font-size:11px; color:#888; background:#23232a; border-top:1px solid #333;}
+        .val-pos {color:#2ecc71;}
+        .val-neg {color:#e74c3c;}
+    .src-badge {display:inline-block; margin-left:2px; padding:0 4px; font-size:10px; border-radius:3px; background:#3a3a45; color:#ccc;}
+    .market-status.inline-badge {position:absolute; top:6px; left:6px; padding:2px 6px; font-size:10px; background:#444; border-radius:4px; text-transform:uppercase; letter-spacing:.5px;}
+    .market-status.inline-badge.premarket {background:#8e44ad;}
+    .market-status.inline-badge.postmarket {background:#d35400;}
+        .src-badge[data-kind="derived"] {background:#55515a; color:#ddd;}
+        #toggle-debug-btn {background:#3b3f52; color:#eee; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;}
+        #toggle-debug-btn:hover {background:#4a5066;}
+    </style>
+</body>
+</html>

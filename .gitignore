@@ -1,0 +1,29 @@
+# API Keys & Config
+config.json
+finnhub.key
+twelvedata.key
+.env
+.env.local
+
+# Node modules
+node_modules/
+
+# Cache
+.cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Documentation (geçici)
+TEST_CHECKLIST.md
+TWELVE_DATA_PLAN.md
+README.md
