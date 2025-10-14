@@ -556,15 +556,20 @@ async function getStockData(symbol) {
                     }
                 }
                 
-                // Türetilmiş değerleri meta'ya ekle
-                if (meta.preMarketPrice === undefined && lastPreClose !== undefined) {
+                // Add derived values only during actual pre/post market hours
+                const now = new Date();
+                const currentMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+                const isPreMarketTime = currentMinutes >= preStart && currentMinutes < preEnd;
+                const isPostMarketTime = currentMinutes >= postStart && currentMinutes < postEnd;
+                
+                if (isPreMarketTime && meta.preMarketPrice === undefined && lastPreClose !== undefined) {
                     meta.derivedPreMarketPrice = lastPreClose;
-                    console.log(`${symbol}: Pre-market türetildi: ${lastPreClose.toFixed(2)}`);
+                    console.log(`${symbol}: Pre-market derived: ${lastPreClose.toFixed(2)}`);
                 }
                 
-                if (meta.postMarketPrice === undefined && lastPostClose !== undefined) {
+                if (isPostMarketTime && meta.postMarketPrice === undefined && lastPostClose !== undefined) {
                     meta.derivedPostMarketPrice = lastPostClose;
-                    console.log(`${symbol}: Post-market türetildi: ${lastPostClose.toFixed(2)}`);
+                    console.log(`${symbol}: Post-market derived: ${lastPostClose.toFixed(2)}`);
                 }
                 
                 // TEKNİK ANALİZ EKLE (UZUN VADELİ - GÜNLÜK VERİ)
@@ -600,7 +605,7 @@ async function getStockData(symbol) {
                                 const technicalAnalysis = performTechnicalAnalysis(ohlcData);
                                 if (technicalAnalysis) {
                                     meta.technicalAnalysis = technicalAnalysis;
-                                    console.log(`${symbol}: Teknik analiz tamamlandı - Trend: ${technicalAnalysis.signals.overall} (${validIndices.length} günlük veri)`);
+                                    console.log(`${symbol}: Technical analysis completed - Trend: ${technicalAnalysis.signals.overall} (${validIndices.length} days of data)`);
                                 }
                             }
                         }

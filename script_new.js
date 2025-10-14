@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+﻿document.addEventListener('DOMContentLoaded', () => {
     const stockInput = document.getElementById('stock-input');
     const addStockBtn = document.getElementById('add-stock-btn');
     const stockContainer = document.getElementById('stock-container');
@@ -17,14 +17,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let updateInterval = null;
     let isUpdating = false;
     // Debug panel state
-    const stockData = {}; // sembol -> son veriler
+    const stockData = {}; // symbol -> last data
     let debugPanelEnabled = false;
     let debugInterval = null;
     const initialStocks = [
-        'AAPL', 'AMZN', 'GOOGL', 'META', 'MSFT', 'NVDA', 'TSLA' // Sadece Magnificent 7
+        'AAPL', 'AMZN', 'GOOGL', 'META', 'MSFT', 'NVDA', 'TSLA' // Only Magnificent 7
     ];
 
-    // Magnificent 7 şirketleri
+    // Magnificent 7 companies
     const magnificent7 = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA'];
 
     function loadInitialStocks() {
@@ -32,24 +32,24 @@ document.addEventListener('DOMContentLoaded', () => {
         stocks = [];
         loadFavorites();
         
-        // Kaydedilen sıralamayı yükle
+        // Load saved order
         const savedOrder = loadStockOrder();
         let stocksToLoad = initialStocks;
         
         if (savedOrder && savedOrder.length > 0) {
-            // Kaydedilen sıralamayı kullan, eksik olanları sona ekle - SADECE MAG7 İÇİN
+            // Use saved order, append missing ones to the end - ONLY FOR MAG7
             const mag7SavedOrder = savedOrder.filter(symbol => magnificent7.includes(symbol));
             const missingStocks = initialStocks.filter(symbol => !mag7SavedOrder.includes(symbol));
             stocksToLoad = [...mag7SavedOrder, ...missingStocks];
-            console.log('Kaydedilen sıralama yüklendi (sadece Mag7):', mag7SavedOrder);
+            console.log('Saved order loaded (Mag7 only):', mag7SavedOrder);
         }
         
-        // Tüm hisseleri sırayla yükle
+        // Load all stocks sequentially
         async function loadAllStocks() {
             for (const symbol of stocksToLoad) {
                 await addStock(symbol);
             }
-            console.log('Tüm hisseler yüklendi, sıralama kaydediliyor');
+            console.log('All stocks loaded, saving order');
             saveStockOrder();
             initializeSortable();
         }
@@ -68,7 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
             chosenClass: 'sortable-chosen',
             dragClass: 'sortable-drag',
             onEnd: function(evt) {
-                // Sıralama değiştiğinde stocks dizisini güncelle
+                // Update stocks array when order changes
                 updateStocksOrder();
             }
         });
@@ -87,8 +87,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         stocks = newStocks;
-        saveStockOrder(); // Sıralamayı kaydet
-        console.log('Hisse sıralaması güncellendi:', stocks.map(s => s.symbol));
+        saveStockOrder(); // Save order
+        console.log('Stock order updated:', stocks.map(s => s.symbol));
     }
 
     function saveStockOrder() {
@@ -105,11 +105,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (savedOrder) {
             try {
                 const orderArray = JSON.parse(savedOrder);
-                // Sadece Magnificent 7 şirketlerini filtrele
+                // Filter only Magnificent 7 companies
                 const mag7Order = orderArray.filter(symbol => magnificent7.includes(symbol));
                 return mag7Order;
             } catch (e) {
-                console.error('Kaydedilen sıralama okunamadı:', e);
+                console.error('Could not read saved order:', e);
                 return [];
             }
         }
@@ -121,9 +121,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (savedFavorites) {
             try {
                 favorites = JSON.parse(savedFavorites);
-                console.log('Favoriler yüklendi:', favorites);
+                console.log('Favorites loaded:', favorites);
             } catch (e) {
-                console.error('Favoriler okunamadı:', e);
+                console.error('Could not read favorites:', e);
                 favorites = [];
             }
         } else {
@@ -134,9 +134,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function saveFavorites() {
         try {
             localStorage.setItem('favorites', JSON.stringify(favorites));
-            console.log('Favoriler kaydedildi:', favorites);
+            console.log('Favorites saved:', favorites);
         } catch (e) {
-            console.error('Favoriler kaydedilemedi:', e);
+            console.error('Could not save favorites:', e);
         }
     }
 
@@ -144,73 +144,73 @@ document.addEventListener('DOMContentLoaded', () => {
         const index = favorites.indexOf(symbol);
         if (index > -1) {
             favorites.splice(index, 1);
-            console.log(`${symbol} favorilerden çıkarıldı`);
-            // Favori çıkarıldığında Mag 7 sonrasına taşı
+            console.log(`${symbol} removed from favorites`);
+            // Move to after Mag 7 when unfavorited
             moveToAfterMagnificent7(symbol);
         } else {
             favorites.push(symbol);
-            console.log(`${symbol} favorilere eklendi`);
-            // Favori eklendiğinde en başa taşı
+            console.log(`${symbol} added to favorites`);
+            // Move to top when favorited
             updateStockOrder();
         }
         saveFavorites();
     }
 
     function updateStockOrder() {
-        // Favorileri önce, Mag 7'yi alfabetik, diğerlerini sonra sırala
+        // Sort: Favorites first, then Mag 7 alphabetically, then others
         const favoriteStocks = stocks.filter(stock => favorites.includes(stock.symbol));
         const mag7Stocks = stocks.filter(stock => magnificent7.includes(stock.symbol) && !favorites.includes(stock.symbol))
-                                 .sort((a, b) => a.symbol.localeCompare(b.symbol)); // Mag 7'yi alfabetik sırala
+                                 .sort((a, b) => a.symbol.localeCompare(b.symbol)); // Sort Mag 7 alphabetically
         const otherStocks = stocks.filter(stock => !magnificent7.includes(stock.symbol) && !favorites.includes(stock.symbol));
         const newOrder = [...favoriteStocks, ...mag7Stocks, ...otherStocks];
         
-        // DOM'u yeniden sırala
+        // Reorder DOM
         stockContainer.innerHTML = '';
         newOrder.forEach(stock => {
             appendStockCard(stock);
         });
         
-        // stocks dizisini güncelle
+        // Update stocks array
         stocks = newOrder;
         saveStockOrder();
         initializeSortable();
         
-        console.log('Sıralama güncellendi - Favoriler önce:', favorites);
+        console.log('Order updated - Favorites first:', favorites);
     }
 
     function moveToAfterMagnificent7(symbol) {
-        // Yeni sıralama: Favoriler + Mag 7 (alfabetik) + Diğerleri (çıkarılan hisse Mag 7'dan sonra)
+        // New order: Favorites + Mag 7 (alphabetically) + Others (removed stock after Mag 7)
         const favoriteStocks = stocks.filter(stock => favorites.includes(stock.symbol));
         const mag7Stocks = stocks.filter(stock => magnificent7.includes(stock.symbol) && !favorites.includes(stock.symbol))
-                                 .sort((a, b) => a.symbol.localeCompare(b.symbol)); // Mag 7'yi alfabetik sırala
+                                 .sort((a, b) => a.symbol.localeCompare(b.symbol)); // Sort Mag 7 alphabetically
         const otherStocks = stocks.filter(stock => !magnificent7.includes(stock.symbol) && !favorites.includes(stock.symbol));
         
-        // Çıkarılan hisseyi bul ve diğer hisselerden çıkar
+        // Find and remove the unfavorited stock from other stocks
         const removedStock = otherStocks.find(stock => stock.symbol === symbol);
         if (removedStock) {
             const index = otherStocks.indexOf(removedStock);
             otherStocks.splice(index, 1);
         }
         
-        // Yeni sıralama: Favoriler + Mag 7 (alfabetik) + Çıkarılan Hisse + Diğerleri
+        // New order: Favorites + Mag 7 (alphabetically) + Removed Stock + Others
         const newOrder = [...favoriteStocks, ...mag7Stocks];
         if (removedStock) {
             newOrder.push(removedStock);
         }
         newOrder.push(...otherStocks);
         
-        // DOM'u yeniden sırala
+        // Reorder DOM
         stockContainer.innerHTML = '';
         newOrder.forEach(stock => {
             appendStockCard(stock);
         });
         
-        // stocks dizisini güncelle
+        // Update stocks array
         stocks = newOrder;
         saveStockOrder();
         initializeSortable();
         
-        console.log(`${symbol} Mag 7'dan sonraki pozisyona taşındı`);
+        console.log(`${symbol} moved to position after Mag 7`);
     }
 
     addStockBtn.addEventListener('click', () => {
@@ -221,50 +221,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Sıralamayı sıfırlama butonu
+    // Reset order button
     const resetOrderBtn = document.getElementById('reset-order-btn');
     resetOrderBtn.addEventListener('click', () => {
-        if (confirm('Sıralamayı sıfırlamak istediğinizden emin misiniz? Bu işlem geri alınamaz.')) {
+        if (confirm('Are you sure you want to reset the order? This action cannot be undone.')) {
             resetToMagnificent7Order();
         }
     });
 
     function resetToMagnificent7Order() {
-        console.log('Magnificent 7 sıralaması sıfırlanıyor...');
+        console.log('Resetting Magnificent 7 order...');
         
-        // localStorage'ı temizle
+        // Clear localStorage
         localStorage.removeItem('stockOrder');
         
-        // Sayfayı yeniden yükle
+        // Reload page
         stockContainer.innerHTML = '';
         stocks = [];
         
-        // Favori hisseleri önce, sonra Magnificent 7 (alfabetik), sonra diğerleri
+        // Favorite stocks first, then Magnificent 7 (alphabetically), then others
         const favoriteStocks = initialStocks.filter(symbol => favorites.includes(symbol));
         const magnificent7Stocks = magnificent7.filter(symbol => !favorites.includes(symbol))
-                                              .sort((a, b) => a.localeCompare(b)); // Mag 7'yi alfabetik sırala
+                                              .sort((a, b) => a.localeCompare(b)); // Sort Mag 7 alphabetically
         const otherStocks = initialStocks.filter(symbol => 
             !magnificent7.includes(symbol) && !favorites.includes(symbol)
         );
         
         const newOrder = [...favoriteStocks, ...magnificent7Stocks, ...otherStocks];
         
-        console.log('Favori hisseler:', favoriteStocks);
-        console.log('Magnificent 7 (favori olmayan):', magnificent7Stocks);
-        console.log('Diğer hisseler:', otherStocks);
-        console.log('Yeni sıralama:', newOrder);
+        console.log('Favorite stocks:', favoriteStocks);
+        console.log('Magnificent 7 (non-favorites):', magnificent7Stocks);
+        console.log('Other stocks:', otherStocks);
+        console.log('New order:', newOrder);
         
-        // Yeni sıralamayı yükle
+        // Load with new order
         async function loadWithNewOrder() {
             for (const symbol of newOrder) {
                 await addStock(symbol);
             }
-            console.log('Magnificent 7 sıralaması yüklendi');
+            console.log('Magnificent 7 order loaded');
             
-            // DOM'u yeniden sırala
+            // Reorder DOM
             reorderDOM(newOrder);
             
-            // stocks dizisini güncelle
+            // Update stocks array
             updateStocksOrder();
             
             saveStockOrder();
@@ -275,10 +275,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function reorderDOM(newOrder) {
-        // Mevcut kartları temizle
+        // Clear existing cards
         stockContainer.innerHTML = '';
         
-        // Yeni sıralamaya göre kartları yeniden ekle
+        // Re-add cards according to new order
         newOrder.forEach(symbol => {
             const stock = stocks.find(s => s.symbol === symbol);
             if (stock) {
@@ -286,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        console.log('DOM yeniden sıralandı');
+        console.log('DOM reordered');
     }
 
     async function addStock(symbol) {
@@ -296,22 +296,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(url);
             const data = await response.json();
 
-            // Sunucudan gelen hata mesajını kontrol et
+            // Check error message from server
             if (!response.ok || data.error) {
-                throw new Error(data.error || `Sunucudan hata kodu geldi: ${response.status}`);
+                throw new Error(data.error || `Error code from server: ${response.status}`);
             }
 
             if (data.chart.result && data.chart.result[0]) {
                 const meta = data.chart.result[0].meta;
                 const indicators = data.chart.result[0].indicators.quote[0];
 
-                // Premarket verilerini kontrol et
+                // Check premarket data
                 let combinedMeta = { ...meta };
                 
-                // Debug için tüm meta verilerini logla (isteğe bağlı)
+                // Log all meta data for debug (optional)
                 // console.log(`${symbol} full meta data:`, meta);
                 
-                // Piyasa öncesi/sonrası verileri kontrol et
+                // Check pre/post market data
                 if (meta.preMarketPrice !== undefined && meta.preMarketPrice !== null) {
                     console.log(`${symbol} premarket price found: ${meta.preMarketPrice}`);
                     combinedMeta.preMarketPrice = meta.preMarketPrice;
@@ -327,13 +327,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     combinedMeta.postMarketChangePercent = meta.postMarketChangePercent;
                 }
                 
-                // Eğer API'den pre/post market verisi gelmiyorsa, saate göre otomatik tespit yap
+                // If API doesn't provide pre/post market data, auto-detect based on time
                 const now = new Date();
                 const utcHour = now.getUTCHours();
                 const utcMinute = now.getUTCMinutes();
                 const utcTimeInMinutes = utcHour * 60 + utcMinute;
                 
-                // NYSE/NASDAQ saatleri (UTC):
+                // NYSE/NASDAQ hours (UTC):
                 // Pre-market: 08:00 - 13:30 UTC (04:00 - 09:30 EST)
                 // Regular: 13:30 - 20:00 UTC (09:30 - 16:00 EST)
                 // After-hours: 20:00 - 00:00 UTC (16:00 - 20:00 EST)
@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const regularEnd = 20 * 60; // 20:00 UTC
                 const afterHoursEnd = 24 * 60; // 00:00 UTC
                 
-                // Hafta içi kontrolü (0 = Pazar, 6 = Cumartesi)
+                // Weekday check (0 = Sunday, 6 = Saturday)
                 const dayOfWeek = now.getUTCDay();
                 const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
                 
@@ -361,38 +361,38 @@ document.addEventListener('DOMContentLoaded', () => {
                     combinedMeta.marketState = 'CLOSED';
                 }
                 
-                console.log(`${symbol} - Zaman analizi: UTC ${utcHour}:${utcMinute}, Market State: ${combinedMeta.marketState}`);
+                console.log(`${symbol} - Time analysis: UTC ${utcHour}:${utcMinute}, Market State: ${combinedMeta.marketState}`);
 
-                // Fiyat seçimi - sadece gerçek marketState'e göre
+                // Price selection - based only on actual marketState
                 let latestPrice;
                 if (combinedMeta.marketState === 'PRE') {
-                    // Pre-market saatinde: önce gerçek pre, sonra derived pre, yoksa regular
+                    // Pre-market hours: first real pre, then derived pre, otherwise regular
                     const hasDerivedPre = combinedMeta.derivedPreMarketPrice !== undefined;
                     latestPrice = combinedMeta.preMarketPrice || (hasDerivedPre ? combinedMeta.derivedPreMarketPrice : combinedMeta.regularMarketPrice);
                 } else if (combinedMeta.marketState === 'POST') {
-                    // Post-market saatinde: önce gerçek post, sonra derived post, yoksa regular
+                    // Post-market hours: first real post, then derived post, otherwise regular
                     const hasDerivedPost = combinedMeta.derivedPostMarketPrice !== undefined;
                     latestPrice = combinedMeta.postMarketPrice || (hasDerivedPost ? combinedMeta.derivedPostMarketPrice : combinedMeta.regularMarketPrice);
                 } else {
-                    // Regular veya Closed: sadece regularMarketPrice kullan
+                    // Regular or Closed: only use regularMarketPrice
                     latestPrice = combinedMeta.regularMarketPrice || combinedMeta.previousClose;
                 }
                 
-                // previousClose belirleme: piyasa durumuna göre
+                // Determine previousClose: based on market state
                 let previousPrice;
                 if (combinedMeta.marketState === 'PRE' || combinedMeta.marketState === 'POST') {
-                    // Pre/Post market: regularMarketPrice = dünün kapanışı
+                    // Pre/Post market: regularMarketPrice = yesterday's close
                     previousPrice = combinedMeta.regularMarketPrice || combinedMeta.chartPreviousClose || combinedMeta.previousClose;
                 } else {
-                    // Regular market: previousClose = dünün kapanışı
+                    // Regular market: previousClose = yesterday's close
                     previousPrice = combinedMeta.previousClose || combinedMeta.chartPreviousClose || combinedMeta.regularMarketPrice;
                 }
                 
-                // Debug logları - gerekirse aktif et
+                // Debug logs - activate if needed
                 // console.log(`${symbol} combined meta:`, combinedMeta);
                 // console.log(`${symbol} market state:`, combinedMeta.marketState);
                 
-                // Piyasa durumunu belirle - SADECE marketState'e göre (derived varlığına bakma!)
+                // Determine market status - ONLY based on marketState (don't check derived existence!)
                 let marketStatus = 'normal';
                 if (combinedMeta.marketState === 'PRE') {
                     marketStatus = 'premarket';
@@ -404,26 +404,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     marketStatus = 'normal'; // CLOSED durumunda da normal göster
                 }
 
-                // Gerçek premarket verilerini kullan (önce direkt API, sonra derived)
+                // Use actual premarket data (first direct API, then derived)
                 const effectivePre = combinedMeta.preMarketPrice !== undefined ? combinedMeta.preMarketPrice : combinedMeta.derivedPreMarketPrice;
                 const effectivePost = combinedMeta.postMarketPrice !== undefined ? combinedMeta.postMarketPrice : combinedMeta.derivedPostMarketPrice;
 
-                // Değişim hesapla (MANUEL) -> her zaman previousClose'a göre hesapla; API change alanlarını kullanma
+                // Calculate change (MANUAL) -> always calculate based on previousClose; don't use API change fields
                 let change = 0; let changePercent = 0;
                 const base = previousPrice && previousPrice !== 0 ? previousPrice : null;
                 if (base) {
                     if (marketStatus === 'premarket' && effectivePre !== undefined) {
-                        // Premarket değişimi = premarket fiyatı - önceki kapanış
+                        // Premarket change = premarket price - previous close
                         change = effectivePre - base;
                         changePercent = (change / base) * 100;
                         console.log(`${symbol} premarket change: ${effectivePre.toFixed(2)} - ${base.toFixed(2)} = ${change.toFixed(2)} (${changePercent.toFixed(2)}%)`);
                     } else if (marketStatus === 'postmarket' && effectivePost !== undefined) {
-                        // Postmarket değişimi = postmarket fiyatı - önceki kapanış
+                        // Postmarket change = postmarket price - previous close
                         change = effectivePost - base;
                         changePercent = (change / base) * 100;
                         console.log(`${symbol} postmarket change: ${effectivePost.toFixed(2)} - ${base.toFixed(2)} = ${change.toFixed(2)} (${changePercent.toFixed(2)}%)`);
                     } else if (combinedMeta.regularMarketPrice !== undefined) {
-                        // Regular market değişimi = regular fiyatı - önceki kapanış
+                        // Regular market change = regular price - previous close
                         change = combinedMeta.regularMarketPrice - base;
                         changePercent = (change / base) * 100;
                         console.log(`${symbol} regular change: ${combinedMeta.regularMarketPrice.toFixed(2)} - ${base.toFixed(2)} = ${change.toFixed(2)} (${changePercent.toFixed(2)}%)`);
@@ -452,27 +452,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     regularMarketPrice: combinedMeta.regularMarketPrice,
                     previousCloseRaw: combinedMeta.previousClose,
                     marketState: combinedMeta.marketState,
-                    technicalAnalysis: combinedMeta.technicalAnalysis || null, // Teknik analiz ekle
+                    technicalAnalysis: combinedMeta.technicalAnalysis || null, // Add technical analysis
                     _lastUpdate: Date.now()
                 };
 
                 if (!stocks.some(s => s.symbol === symbol)) {
                     stocks.push(stock);
                     appendStockCard(stock);
-                    initializeSortable(); // Yeni hisse eklendiğinde sortable'ı yeniden başlat
+                    initializeSortable(); // Reinitialize sortable when new stock is added
                 }
-                stockData[symbol] = stock; // debug panel için sakla
+                stockData[symbol] = stock; // Save for debug panel
             } else {
-                console.warn(`'${symbol}' için veri alınamadı.`, data);
+                console.warn(`Could not get data for '${symbol}'.`, data);
                 if (!initialStocks.includes(symbol)) {
-                    alert(`'${symbol}' hissesi bulunamadı.`);
+                    alert(`Stock '${symbol}' not found.`);
                 }
             }
         } catch (error) {
-            console.error(`'${symbol}' için veri alınırken hata oluştu:`, error.message);
-            // Sadece ilk hissede hata mesajı göster, diğerleri için konsola yaz.
+            console.error(`Error fetching data for '${symbol}':`, error.message);
+            // Show error message only for first stock, write to console for others.
             if (stocks.length === 0) {
-                alert(`Veri alınırken bir hata oluştu: ${error.message}. Lütfen internet bağlantınızı ve terminaldeki sunucu loglarını kontrol edin.`);
+                alert(`An error occurred while fetching data: ${error.message}. Please check your internet connection and server logs in terminal.`);
             }
         }
     }
@@ -482,7 +482,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sign = stock.change >= 0 ? '+' : '';
         const isFavorite = favorites.includes(stock.symbol);
         const currency = stock.symbol.endsWith('.IS') ? '₺' : '$';
-        // Kaynak rozet mapping: Y (yahoo direct), ~ (derived), F (Finnhub)
+        // Source badge mapping: Y (yahoo direct), ~ (derived), F (Finnhub)
         function sourceBadgeFor(stock){
             if (stock.marketStatus === 'premarket') {
                 if (stock.preMarketDerived) return '<span class="src-badge" title="Kaynak: Yahoo (türetilmiş bar)" data-src="yahoo-derived">~</span>';
@@ -495,7 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return '';
         }
-        // Yeni tek fiyat gösterimi: pre veya post varsa ana fiyatta gösterilecek.
+        // New single price display: if pre or post exists, show it in main price.
         let marketStatusLabel = '';
         if (stock.marketStatus === 'premarket') {
             marketStatusLabel = '<div class="market-status inline-badge premarket">PRE</div>';
@@ -507,7 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
         stockCard.classList.add('stock-card');
         stockCard.dataset.symbol = stock.symbol;
         
-        // Gösterilecek ana fiyat: preMarket varsa (badge PRE), yoksa postMarket varsa (badge POST), yoksa regular
+        // Main price to display: if preMarket exists (badge PRE), or postMarket exists (badge POST), otherwise regular
         let displayPriceValue = stock.price;
         if (stock.marketStatus === 'premarket' && stock.preMarketPrice !== undefined) {
             displayPriceValue = stock.preMarketPrice;
@@ -516,14 +516,21 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const sourceBadge = sourceBadgeFor(stock);
         
-        // Teknik analiz özet bilgisi (UZUN VADELİ)
+        // Technical analysis summary (LONG TERM)
         let taHtml = '';
+        let trendEmoji = '';
+        let trendShort = '';
+        let trendColor = '#888';
+        let ta = null;
+        let positionText = '';
+        let positionBadge = '';
+        let positionTooltip = '';
+        
         if (stock.technicalAnalysis) {
-            const ta = stock.technicalAnalysis;
-            let trendEmoji, trendColor, trendShort;
+            ta = stock.technicalAnalysis;
             
             if (ta.signals.overall === 'STRONG_BULLISH') {
-                trendEmoji = '�'; trendColor = '#00ff00'; trendShort = 'Güçlü Yükseliş';
+                trendEmoji = '🚀'; trendColor = '#00ff00'; trendShort = 'Güçlü Yükseliş';
             } else if (ta.signals.overall === 'BULLISH') {
                 trendEmoji = '📈'; trendColor = '#51cf66'; trendShort = 'Yükseliş';
             } else if (ta.signals.overall === 'STRONG_BEARISH') {
@@ -534,59 +541,110 @@ document.addEventListener('DOMContentLoaded', () => {
                 trendEmoji = '➡️'; trendColor = '#ffaa00'; trendShort = 'Yatay';
             }
             
-            // Fiyat pozisyonu hesapla (destek/direnç aralığında nerede)
-            let positionText = '';
-            let positionBadge = '';
-            let positionTooltip = '';
+            // Calculate price position (where in support/resistance range)
             if (ta.indicators.pricePosition !== undefined) {
                 const pos = ta.indicators.pricePosition;
                 if (pos < 20) {
                     positionText = 'Dip Fiyat';
                     positionBadge = '🟢';
-                    positionTooltip = 'Fiyat destek seviyelerine çok yakın. Ekleme yapmak için çok iyi bir seviye.';
+                    positionTooltip = 'Price very close to support levels. Excellent level for adding positions.';
                 } else if (pos < 40) {
                     positionText = 'İyi Fiyat';
-                    positionBadge = '💚';
-                    positionTooltip = 'Fiyat destek seviyelerine yakın. Ekleme yapmak için iyi bir seviye.';
+                    positionBadge = '🟢';
+                    positionTooltip = 'Price close to support levels. Good level for adding positions.';
                 } else if (pos < 60) {
                     positionText = 'Orta Fiyat';
                     positionBadge = '🟡';
-                    positionTooltip = 'Fiyat orta seviyelerde. Ne çok ucuz ne çok pahalı.';
+                    positionTooltip = 'Price at mid-levels. Neither cheap nor expensive.';
                 } else if (pos < 80) {
                     positionText = 'Yüksek Fiyat';
                     positionBadge = '🟠';
-                    positionTooltip = 'Fiyat direnç seviyelerine yakın. Kısmi satış düşünülebilir.';
+                    positionTooltip = 'Price close to resistance levels. Consider partial profit taking.';
                 } else {
                     positionText = 'Tepe Fiyat';
                     positionBadge = '🔴';
-                    positionTooltip = 'Fiyat direnç seviyelerine çok yakın. Kısmi kar realizasyonu yapılabilir.';
+                    positionTooltip = 'Price very close to resistance levels. Partial profit realization recommended.';
                 }
             }
             
+            // Determine trend color and glow
+            let trendBorderColor = '#3498db';
+            let trendEmojiColor = 'inherit';
+            let trendGlow = '';
+            
+            if (trendColor === '#00ff00') { // Strong Bullish (💹)
+                trendBorderColor = '#00ff00';
+                trendEmojiColor = '#00ff00';
+                trendGlow = '0 0 12px rgba(0, 255, 0, 0.8), 0 0 24px rgba(0, 255, 0, 0.4)';
+            } else if (trendColor === '#51cf66') { // Bullish (📈)
+                trendBorderColor = '#2ecc71';
+                trendEmojiColor = '#51cf66';
+                trendGlow = '0 0 10px rgba(81, 207, 102, 0.6)';
+            } else if (trendColor === '#ff4444') { // Strong Bearish (💥)
+                trendBorderColor = '#ff4444';
+                trendEmojiColor = '#ff4444';
+                trendGlow = '0 0 12px rgba(255, 68, 68, 0.8), 0 0 24px rgba(255, 68, 68, 0.4)';
+            } else if (trendColor === '#ff6b6b') { // Bearish (📉)
+                trendBorderColor = '#e74c3c';
+                trendEmojiColor = '#ff6b6b';
+                trendGlow = '0 0 10px rgba(255, 107, 107, 0.6)';
+            } else { // Sideways (➡️)
+                trendBorderColor = '#f39c12';
+                trendEmojiColor = '#f39c12';
+                trendGlow = '0 0 10px rgba(243, 156, 18, 0.6)';
+            }
+            
+            // Determine price position color and glow
+            let positionBorderColor = '#95a5a6';
+            let positionEmojiColor = 'inherit';
+            let positionGlow = '';
+            
+            if (positionBadge === '🟢') { // Bottom/Good Price - Strong Bullish/Bullish (Green)
+                // Dip Fiyat için parlak yeşil, İyi Fiyat için normal yeşil
+                if (positionText === 'Dip Fiyat') {
+                    positionBorderColor = '#00ff00';
+                    positionEmojiColor = '#00ff00';
+                    positionGlow = '0 0 18px rgba(0, 255, 0, 1), 0 0 36px rgba(0, 255, 0, 0.6), 0 0 54px rgba(0, 255, 0, 0.3)';
+                } else { // İyi Fiyat
+                    positionBorderColor = '#51cf66';
+                    positionEmojiColor = '#51cf66';
+                    positionGlow = '0 0 14px rgba(81, 207, 102, 0.9), 0 0 28px rgba(81, 207, 102, 0.4)';
+                }
+            } else if (positionBadge === '🟡') { // Mid Price - Sideways (Yellow)
+                positionBorderColor = '#ffaa00';
+                positionEmojiColor = '#ffaa00';
+                positionGlow = '0 0 12px rgba(255, 170, 0, 0.8)';
+            } else if (positionBadge === '🟠') { // High Price - Bearish (Orange)
+                positionBorderColor = '#ff6b6b';
+                positionEmojiColor = '#ff6b6b';
+                positionGlow = '0 0 12px rgba(255, 107, 107, 0.8)';
+            } else if (positionBadge === '🔴') { // Top Price - Strong Bearish (Red)
+                positionBorderColor = '#ff4444';
+                positionEmojiColor = '#ff4444';
+                positionGlow = '0 0 18px rgba(255, 68, 68, 1), 0 0 36px rgba(255, 68, 68, 0.6), 0 0 54px rgba(255, 68, 68, 0.3)';
+            }
+            
             taHtml = `
-                <div class="ta-summary" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <div style="color: ${trendColor}; font-weight: 600; font-size: 0.9em;">
-                            ${trendEmoji} ${trendShort}
+                <div class="ta-summary" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 20px;">
+                        <div style="flex: 1; display: flex; justify-content: center;">
+                            <span style="font-size: 1.6em; color: ${trendEmojiColor};">${trendEmoji}</span>
                         </div>
-                        ${positionText ? `
-                            <div class="tooltip-container" style="background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; cursor: help; position: relative;">
-                                ${positionBadge} ${positionText}
-                                <div class="tooltip" style="width: 200px;">${positionTooltip}</div>
+                        ${positionBadge ? `
+                            <div style="flex: 1; display: flex; justify-content: center;">
+                                <span style="font-size: 1.6em; color: ${positionEmojiColor};">${positionBadge}</span>
                             </div>
                         ` : ''}
                     </div>
                     
-                    <div style="background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                            <div style="flex: 1;">
-                                <div style="color: #888; font-size: 0.75em; margin-bottom: 4px;">Ekleme</div>
-                                <div style="color: #51cf66; font-weight: 600; font-size: 0.9em;">${currency}${ta.recommendations.buyPrice.toFixed(2)}</div>
-                            </div>
-                            <div style="flex: 1; text-align: right;">
-                                <div style="color: #888; font-size: 0.75em; margin-bottom: 4px;">Kısmi Satış</div>
-                                <div style="color: #ff6b6b; font-weight: 600; font-size: 0.9em;">${currency}${ta.recommendations.sellPrice.toFixed(2)}</div>
-                            </div>
+                    <div style="display: flex; gap: 8px; font-size: 0.8em;">
+                        <div style="flex: 1; background: rgba(81, 207, 102, 0.1); padding: 6px; border-radius: 6px; text-align: center; border: 1px solid rgba(81, 207, 102, 0.2);">
+                            <div style="color: #51cf66; font-weight: 600;">${currency}${ta.recommendations.buyPrice.toFixed(2)}</div>
+                            <div style="color: #888; font-size: 0.85em; margin-top: 2px;">Ekleme</div>
+                        </div>
+                        <div style="flex: 1; background: rgba(255, 107, 107, 0.1); padding: 6px; border-radius: 6px; text-align: center; border: 1px solid rgba(255, 107, 107, 0.2);">
+                            <div style="color: #ff6b6b; font-weight: 600;">${currency}${ta.recommendations.sellPrice.toFixed(2)}</div>
+                            <div style="color: #888; font-size: 0.85em; margin-top: 2px;">Satış</div>
                         </div>
                     </div>
                 </div>
@@ -594,40 +652,77 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         stockCard.innerHTML = `
-            <div class="favorite-star ${isFavorite ? 'active' : 'inactive'}" data-symbol="${stock.symbol}">★</div>
-            ${marketStatusLabel}
-            
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-                <div>
-                    <h2 style="margin: 0;">${stock.symbol}</h2>
+            <!-- Stacked (Card) Layout -->
+            <div class="card-stacked" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div class="favorite-star ${isFavorite ? 'active' : 'inactive'}" data-symbol="${stock.symbol}" style="font-size: 22px;">★</div>
+                    ${marketStatusLabel}
                 </div>
-                
-                <div>
-                    <div class="stock-price">${currency}${Number(displayPriceValue).toFixed(2)} ${sourceBadge}</div>
+                <div style="text-align: center; margin-top: 2px;">
+                    <h2 style="margin: 0; font-size: 1.1em; font-weight: 600; letter-spacing: 0.02em;">${stock.symbol}</h2>
                 </div>
-                
-                <div style="display: flex; flex-direction: column; gap: 4px;">
-                    <div class="stock-change ${changeClass}">
-                        ${sign}${Number(stock.change).toFixed(2)} ${currency}
-                    </div>
-                    <div class="stock-change-percent ${changeClass}">
-                        ${sign}${Number(stock.changePercent).toFixed(2)}%
-                    </div>
+                <div style="text-align: center;">
+                    <div class="stock-price" style="font-size: 1.6em; font-weight: 700; letter-spacing: -0.02em;">${currency}${Number(displayPriceValue).toFixed(2)}</div>
                 </div>
-                
+                <div style="display: flex; justify-content: center; align-items: baseline; gap: 12px; font-size: 0.85em;">
+                    <span class="stock-change ${changeClass}">${sign}${Number(stock.change).toFixed(2)}</span>
+                    <span class="stock-change-percent ${changeClass}">${sign}${Number(stock.changePercent).toFixed(2)}%</span>
+                </div>
                 ${taHtml}
+            </div>
+
+            <!-- Row (List) Layout -->
+            <div class="row-view" data-symbol="${stock.symbol}">
+                <div class="cell cell-star">
+                    <span class="favorite-star ${isFavorite ? 'active' : 'inactive'}" data-symbol="${stock.symbol}">★</span>
+                </div>
+                <div class="cell cell-symbol">
+                    <span class="sym">${stock.symbol}</span>
+                </div>
+                <div class="cell cell-price">
+                    ${marketStatusLabel}
+                    <span class="stock-price">${currency}${Number(displayPriceValue).toFixed(2)}</span>
+                </div>
+                <div class="cell cell-change"><span class="stock-change ${changeClass}">${sign}${Number(stock.change).toFixed(2)}</span></div>
+                <div class="cell cell-percent"><span class="stock-change-percent ${changeClass}">${sign}${Number(stock.changePercent).toFixed(2)}%</span></div>
+                <div class="cell cell-trend">
+                    <span class="trend-text" style="color: ${trendColor};">${trendEmoji} ${trendShort}</span>
+                </div>
+                <div class="cell cell-position">
+                    ${positionBadge ? `<span class="position-badge">${positionBadge} ${positionText}</span>` : '-'}
+                </div>
+                <div class="cell cell-buy"><span class="buy-price">${ta && ta.recommendations ? currency + ta.recommendations.buyPrice.toFixed(2) : '-'}</span></div>
+                <div class="cell cell-sell"><span class="sell-price">${ta && ta.recommendations ? currency + ta.recommendations.sellPrice.toFixed(2) : '-'}</span></div>
             </div>
         `;
         
-        // Favori yıldızına tıklama olayı
-        const starElement = stockCard.querySelector('.favorite-star');
-        starElement.addEventListener('click', (e) => {
-            e.stopPropagation(); // Kart tıklamasını engelle
-            toggleFavorite(stock.symbol);
+        // Click event for favorite stars (both card-stacked and row-view)
+        const starElements = stockCard.querySelectorAll('.favorite-star');
+        starElements.forEach(starElement => {
+            starElement.addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent card/row click
+                toggleFavorite(stock.symbol);
+            });
         });
         
-        // Kart tıklaması (grafik açma)
-        stockCard.addEventListener('click', () => openChartModal(stock.symbol));
+        // Card click (open chart) - for both card and row-view
+        stockCard.addEventListener('click', (e) => {
+            // Open chart modal if star is not clicked
+            if (!e.target.classList.contains('favorite-star')) {
+                openChartModal(stock.symbol);
+            }
+        });
+        
+        // Row-view specific click handler
+        const rowView = stockCard.querySelector('.row-view');
+        if (rowView) {
+            rowView.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('favorite-star')) {
+                    openChartModal(stock.symbol);
+                }
+            });
+        }
+        
         stockContainer.appendChild(stockCard);
     }
 
@@ -639,49 +734,14 @@ document.addEventListener('DOMContentLoaded', () => {
         modalStockSymbol.textContent = stock.symbol;
         modal.style.display = 'flex';
         
-        // Varsayılan olarak Grafik sekmesini göster
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-        document.querySelector('[data-tab="chart"]').classList.add('active');
-        document.getElementById('chart-tab').classList.add('active');
-        
-        // Teknik Analiz Panelini Doldur
+        // Fill Technical Analysis Panel
         renderTechnicalAnalysisPanel(stock);
         
-        // Varsayılan zaman dilimini ayarla
+        // Set default timeframe
         currentTimeframe = '1d';
-        document.querySelectorAll('.timeframe-btn').forEach(b => b.classList.remove('active'));
-        document.querySelector('[data-period="1d"]').classList.add('active');
         
-        // Zaman dilimi butonlarını initialize et
-        initializeTimeframeButtons();
-        
-        // Sekme butonları event listener
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const tabName = this.getAttribute('data-tab');
-                switchTab(tabName);
-            });
-        });
-        
-        // TradingView widget'ını yükle
+        // Load TradingView widget
         loadTradingViewChart(symbol, currentTimeframe);
-    }
-    
-    function switchTab(tabName) {
-        // Tüm sekmeleri gizle
-        document.querySelectorAll('.tab-content').forEach(content => {
-            content.classList.remove('active');
-        });
-        
-        // Tüm butonları pasif yap
-        document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        
-        // Seçili sekmeyi göster
-        document.getElementById(tabName + '-tab').classList.add('active');
-        document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
     }
     
     function renderTechnicalAnalysisPanel(stock) {
@@ -689,7 +749,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const currency = stock.symbol.endsWith('.IS') ? '₺' : '$';
         
         if (!stock.technicalAnalysis) {
-            taPanel.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">Teknik analiz verileri yükleniyor...</div>';
+            taPanel.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">Technical analysis data is loading.</div>';
             return;
         }
         
@@ -698,7 +758,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sig = ta.signals;
         const rec = ta.recommendations;
         
-        // Trend rengi ve emoji (UZUN VADELİ)
+        // Trend color and emoji (LONG TERM)
         let trendClass, trendEmoji, trendText;
         if (sig.overall === 'STRONG_BULLISH') {
             trendClass = 'trend-bullish';
@@ -710,7 +770,7 @@ document.addEventListener('DOMContentLoaded', () => {
             trendText = 'Yükseliş';
         } else if (sig.overall === 'STRONG_BEARISH') {
             trendClass = 'trend-bearish';
-            trendEmoji = '�';
+            trendEmoji = '💥';
             trendText = 'Güçlü Düşüş';
         } else if (sig.overall === 'BEARISH') {
             trendClass = 'trend-bearish';
@@ -722,144 +782,70 @@ document.addEventListener('DOMContentLoaded', () => {
             trendText = 'Yatay';
         }
         
-        // RSI rengi
+        // RSI color
         let rsiClass = 'rsi-neutral';
-        if (ind.rsi < 30) rsiClass = 'rsi-oversold';
-        else if (ind.rsi > 70) rsiClass = 'rsi-overbought';
+        let rsiStatus = 'Normal';
+        if (ind.rsi < 30) {
+            rsiClass = 'rsi-oversold';
+            rsiStatus = 'Aşırı Satım';
+        } else if (ind.rsi > 70) {
+            rsiClass = 'rsi-overbought';
+            rsiStatus = 'Aşırı Alım';
+        }
         
         taPanel.innerHTML = `
             <div class="ta-header">
                 <div class="ta-trend ${trendClass}">
                     <span>${trendEmoji}</span>
-                    <span>Uzun Vade Trend: ${trendText}</span>
+                    <span>${trendText}</span>
                 </div>
-                <div style="font-size: 0.9em; color: #888;">
-                    Güncel: ${currency}${ta.currentPrice.toFixed(2)}
-                </div>
-            </div>
-            
-            <div class="ta-recommendations">
-                <div class="ta-rec-box buy">
-                    <div class="ta-rec-label">🎯 Ekleme Yapılabilecek Seviye</div>
-                    <div class="ta-rec-value">${currency}${rec.buyPrice.toFixed(2)}</div>
-                    <div style="font-size: 0.75em; color: #aaa; margin-top: 5px; line-height: 1.4; font-weight: 500;">
-                        ${rec.buyReason ? rec.buyReason.replace(/,/g, '<br>• ') : 'Teknik destek seviyesi'}
-                    </div>
-                    <div style="font-size: 0.8em; color: #ff6b6b; margin-top: 8px; font-weight: bold;">⚠️ Felaket Stop: ${currency}${rec.stopLoss.toFixed(2)}</div>
-                    <div style="font-size: 0.7em; color: #666; margin-top: 2px;">(Sadece büyük kriz senaryosu için - Normalde stop kullanma)</div>
-                </div>
-                <div class="ta-rec-box sell">
-                    <div class="ta-rec-label">💰 Kısmi Satış (1. Hedef)</div>
-                    <div class="ta-rec-value">${currency}${rec.sellPrice.toFixed(2)}</div>
-                    <div style="font-size: 0.75em; color: #aaa; margin-top: 5px; line-height: 1.4; font-weight: 500;">
-                        ${rec.sellReason ? rec.sellReason.replace(/,/g, '<br>• ') : 'Direnç seviyesi'}
-                    </div>
-                    <div style="font-size: 0.8em; color: #51cf66; margin-top: 8px; font-weight: bold;">✨ 2. Hedef (Daha Fazla Yükselirse): ${currency}${rec.takeProfit.toFixed(2)}</div>
-                    <div style="font-size: 0.7em; color: #666; margin-top: 2px;">(Kalan pozisyonun bir kısmını daha sat)</div>
+                <div style="font-size: 0.95em; color: #fff; font-weight: bold;">
+                    ${currency}${ta.currentPrice.toFixed(2)}
                 </div>
             </div>
             
-            <div class="tooltip-container" style="background: #2a2d35; padding: 12px; border-radius: 8px; margin-bottom: 15px; text-align: center; position: relative;">
-                <div style="color: #888; font-size: 0.85em; margin-bottom: 5px;">
-                    Risk/Ödül Oranı <span class="info-icon">ℹ️</span>
-                </div>
-                <div class="tooltip">Potansiyel kazancın potansiyel kayba oranı. 2'nin üstü mükemmel, 1.5'in üstü iyi kabul edilir. Bu oran ne kadar yüksekse işlem o kadar karlı olabilir.</div>
-                <div style="color: #fff; font-size: 1.3em; font-weight: bold;">${rec.riskRewardRatio}</div>
-                <div style="color: #666; font-size: 0.75em; margin-top: 3px;">
-                    (${rec.riskRewardRatio > 2 ? 'Mükemmel' : rec.riskRewardRatio > 1.5 ? 'İyi' : 'Orta'} fırsat)
-                </div>
+            <div class="ta-simple-section">
+                <div class="ta-simple-title">🎯 Alım</div>
+                <div class="ta-simple-price buy">${currency}${rec.buyPrice.toFixed(2)}</div>
+                <div class="ta-simple-desc">${ind.supportResistance ? `Destek: ${currency}${ind.supportResistance.support.toFixed(2)}` : 'Destek seviyesi.'}</div>
             </div>
             
-            <div class="ta-indicators">
-                ${ind.ema50 ? `
-                <div class="ta-indicator tooltip-container">
-                    <div class="ta-ind-name">EMA 50 <span class="info-icon">ℹ️</span></div>
-                    <div class="tooltip">50 günlük üstel hareketli ortalama. Kısa-orta vade trendini gösterir. Fiyatın bu seviyenin üstünde olması kısa vadede güçlü olduğunu gösterir.</div>
-                    <div class="ta-ind-value">${currency}${ind.ema50.toFixed(2)}</div>
-                    <div style="font-size: 0.7em; color: ${ta.currentPrice > ind.ema50 ? '#51cf66' : '#ff6b6b'};">
-                        ${ta.currentPrice > ind.ema50 ? '▲ Üzerinde' : '▼ Altında'}
-                    </div>
-                </div>` : ''}
-                
-                ${ind.ema100 ? `
-                <div class="ta-indicator tooltip-container">
-                    <div class="ta-ind-name">EMA 100 <span class="info-icon">ℹ️</span></div>
-                    <div class="tooltip">100 günlük üstel hareketli ortalama. Orta vade trendini gösterir. Bu seviye genellikle önemli bir destek/direnç oluşturur.</div>
-                    <div class="ta-ind-value">${currency}${ind.ema100.toFixed(2)}</div>
-                    <div style="font-size: 0.7em; color: ${ta.currentPrice > ind.ema100 ? '#51cf66' : '#ff6b6b'};">
-                        ${ta.currentPrice > ind.ema100 ? '▲ Üzerinde' : '▼ Altında'}
-                    </div>
-                </div>` : ''}
-                
-                ${ind.ema200 ? `
-                <div class="ta-indicator tooltip-container">
-                    <div class="ta-ind-name">EMA 200 <span class="info-icon">ℹ️</span></div>
-                    <div class="tooltip">200 günlük üstel hareketli ortalama. Uzun vade trendini gösterir. En güçlü destek/direnç seviyesidir. Bu seviyenin altına düşmek trend değişimi işareti olabilir.</div>
-                    <div class="ta-ind-value">${currency}${ind.ema200.toFixed(2)}</div>
-                    <div style="font-size: 0.7em; color: ${ta.currentPrice > ind.ema200 ? '#51cf66' : '#ff6b6b'};">
-                        ${ta.currentPrice > ind.ema200 ? '▲ Üzerinde' : '▼ Altında'}
-                    </div>
-                </div>` : ''}
-                
-                ${ind.rsi ? `
-                <div class="ta-indicator tooltip-container">
-                    <div class="ta-ind-name">RSI (14) <span class="info-icon">ℹ️</span></div>
-                    <div class="tooltip">Göreceli Güç Endeksi. 30'un altı: Aşırı satım (ucuz olabilir), 70'in üstü: Aşırı alım (pahalı olabilir), 30-70 arası: Normal seviye.</div>
-                    <div class="ta-ind-value ${rsiClass}">${ind.rsi.toFixed(1)}</div>
-                </div>` : ''}
-                
-                ${ind.macd ? `
-                <div class="ta-indicator tooltip-container">
-                    <div class="ta-ind-name">MACD <span class="info-icon">ℹ️</span></div>
-                    <div class="tooltip">Momentum göstergesi. MACD çizgisi Signal çizgisinin üstüne çıkarsa yükseliş, altına inerse düşüş momentumu başlayabilir.</div>
-                    <div class="ta-ind-value">${ind.macd.macd.toFixed(2)}</div>
-                    <div style="font-size: 0.7em; color: #888; margin-top: 3px;">Signal: ${ind.macd.signal.toFixed(2)}</div>
-                </div>` : ''}
-                
-                ${ind.bollingerBands ? `
-                <div class="ta-indicator tooltip-container">
-                    <div class="ta-ind-name">Bollinger Bands <span class="info-icon">ℹ️</span></div>
-                    <div class="tooltip">Volatilite bandı. Fiyat üst banda yaklaşırsa pahalı, alt banda yaklaşırsa ucuz olabilir. Bantların genişlemesi volatilitenin arttığını gösterir.</div>
-                    <div class="ta-ind-value" style="font-size: 0.9em;">
-                        <div>Üst: ${currency}${ind.bollingerBands.upper.toFixed(2)}</div>
-                        <div style="color: #888;">Orta: ${currency}${ind.bollingerBands.middle.toFixed(2)}</div>
-                        <div>Alt: ${currency}${ind.bollingerBands.lower.toFixed(2)}</div>
-                    </div>
-                </div>` : ''}
+            <div class="ta-simple-section">
+                <div class="ta-simple-title">💰 Satış</div>
+                <div class="ta-simple-price sell">${currency}${rec.sellPrice.toFixed(2)}</div>
+                <div class="ta-simple-desc">${ind.supportResistance ? `Direnç: ${currency}${ind.supportResistance.resistance.toFixed(2)}` : 'Direnç seviyesi.'}</div>
             </div>
             
-            ${ind.supportResistance ? `
-            <div class="support-resistance">
-                <div class="sr-box tooltip-container">
-                    <div class="sr-label">📊 Teknik Destek <span class="info-icon">ℹ️</span></div>
-                    <div class="tooltip">Geçmiş fiyat hareketlerine göre hesaplanan destek seviyesi. Fiyat bu seviyeye yaklaşırsa alım yapmak için iyi bir fırsat olabilir.</div>
-                    <div class="sr-value support">${currency}${ind.supportResistance.support ? ind.supportResistance.support.toFixed(2) : 'N/A'}</div>
-                </div>
-                <div class="sr-box tooltip-container">
-                    <div class="sr-label">📊 Teknik Direnç <span class="info-icon">ℹ️</span></div>
-                    <div class="tooltip">Geçmiş fiyat hareketlerine göre hesaplanan direnç seviyesi. Fiyat bu seviyeye yaklaşırsa kısmi kar realizasyonu düşünülebilir.</div>
-                    <div class="sr-value resistance">${currency}${ind.supportResistance.resistance ? ind.supportResistance.resistance.toFixed(2) : 'N/A'}</div>
-                </div>
-            </div>` : ''}
+            <div class="ta-simple-section">
+                <div class="ta-simple-title">⚠️ Stop</div>
+                <div class="ta-simple-price stop">${currency}${rec.stopLoss.toFixed(2)}</div>
+                <div class="ta-simple-desc">Kriz için.</div>
+            </div>
+            
+            <div class="ta-simple-section" style="border-bottom: none;">
+                <div class="ta-simple-title">📊 RSI</div>
+                <div class="ta-simple-price ${rsiClass}">${ind.rsi ? ind.rsi.toFixed(1) : 'N/A'}</div>
+                <div class="ta-simple-desc">${rsiStatus}.</div>
+            </div>
             
             ${sig.messages && sig.messages.length > 0 ? `
             <div class="ta-signals">
-                <div class="ta-signals-title">📢 Aktif Sinyaller</div>
+                <div class="ta-signals-title">📢 Sinyaller</div>
                 ${sig.messages.map(msg => `<div class="ta-signal-item">${msg}</div>`).join('')}
             </div>` : ''}
         `;
     }
 
     function loadTradingViewChart(symbol, timeframe) {
-        // Önceki widget'ı temizle
+        // Clear previous widget
         if (tradingViewChart) {
             tradingViewChart.remove();
         }
         
-        // Widget container'ını temizle
+        // Clear widget container
         tradingViewWidget.innerHTML = '';
         
-        // Zaman dilimini TradingView formatına çevir
+        // Convert timeframe to TradingView format
         const timeframeMap = {
             '1d': '1D',
             '5d': '5D',
@@ -873,10 +859,10 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const tvTimeframe = timeframeMap[timeframe] || '1D';
         
-        // Sembol formatını belirle
+        // Determine symbol format
         let symbolFormat = `NASDAQ:${symbol}`;
         
-        // Bazı hisseler farklı borsalarda
+        // Some stocks are on different exchanges
         const nyseStocks = ['UNH', 'CRM', 'TEAM', 'DKNG', 'HUBS', 'MRVL', 'SMCI', 'HIMS', 'CYBR', 'UBER', 'COIN', 'SPOT'];
         const nasdaqStocks = ['AMD', 'NVDA', 'HOOD', 'RKLB', 'META', 'SOFI', 'PLTR', 'TSLA', 'AVGO', 'GOOGL', 'AAPL', 'MSFT', 'AMZN', 'INTC', 'CRWD'];
         
@@ -885,13 +871,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (nasdaqStocks.includes(symbol)) {
             symbolFormat = `NASDAQ:${symbol}`;
         } else {
-            // Varsayılan olarak NASDAQ dene
+            // Default to NASDAQ
             symbolFormat = `NASDAQ:${symbol}`;
         }
         
-        console.log(`Grafik yükleniyor: ${symbolFormat}`);
+        console.log(`Loading chart: ${symbolFormat}`);
         
-        // TradingView widget'ını oluştur
+        // Create TradingView widget
         try {
             tradingViewChart = new TradingView.widget({
                 "autosize": true,
@@ -1028,43 +1014,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // ESC tuşu ile modal'ı kapat
+    // Close modal with ESC key
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && modal.style.display === 'flex') {
             modal.style.display = 'none';
         }
     });
-
-    // Zaman dilimi butonları - DOM yüklendikten sonra
-    function initializeTimeframeButtons() {
-        document.querySelectorAll('.timeframe-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                console.log('Zaman dilimi değiştiriliyor:', btn.dataset.period);
-                
-                // Aktif butonu güncelle
-                document.querySelectorAll('.timeframe-btn').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                
-                // Yeni zaman dilimini ayarla
-                currentTimeframe = btn.dataset.period;
-                
-                // Grafiği yeniden yükle
-                if (currentStock) {
-                    console.log(`${currentStock.symbol} için ${currentTimeframe} verisi yükleniyor...`);
-                    loadTradingViewChart(currentStock.symbol, currentTimeframe);
-                }
-            });
-        });
-    }
-    // Tüm hisse fiyatlarını güncelle (tekleştirilmiş mantık)
+    // Update all stock prices (unified logic)
     async function updateAllStockPrices() {
         if (isUpdating) return;
         isUpdating = true;
         const refreshBtn = document.getElementById('refresh-btn');
         refreshBtn.classList.add('updating');
         refreshBtn.disabled = true;
-        console.log('Fiyatlar güncelleniyor...');
+        console.log('Updating prices...');
         try {
             await Promise.all(stocks.map(async stock => {
                 try {
@@ -1120,10 +1083,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             console.log(`[UPDATE] ${stock.symbol} regular: ${meta.regularMarketPrice} - ${previousClose} = ${change} (${changePercent.toFixed(2)}%)`);
                         }
                     }
-                    // Eski değerleri kaydet
+                    // Save old values
                     const oldPrice = stock.price; const oldChange = stock.change; const oldChangePercent = stock.changePercent;
-                    // Güncelle
-                    stock.price = displayPrice; // artı: card logic tekrar hesaplamasın
+                    // Update
+                    stock.price = displayPrice; // Plus: card logic won't recalculate
                     stock.marketStatus = marketStatus;
                     stock.change = change; 
                     stock.changePercent = changePercent;
@@ -1143,7 +1106,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     stock.regularMarketPrice = meta.regularMarketPrice;
                     stock.previousClose = previousClose;
                     stock.marketState = meta.marketState;
-                    stock.technicalAnalysis = meta.technicalAnalysis || stock.technicalAnalysis; // Teknik analizi güncelle
+                    stock.technicalAnalysis = meta.technicalAnalysis || stock.technicalAnalysis; // Update technical analysis
                     stock._lastUpdate = Date.now();
                     stockData[stock.symbol] = stock;
                     updateStockCard(stock, oldPrice, oldChange, oldChangePercent);
@@ -1161,42 +1124,42 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Hisse kartını güncelle
+    // Hisse kartını güncelle (hem card-stacked hem row-view)
     function updateStockCard(stock, oldPrice, oldChange, oldChangePercent) {
-        const stockCard = document.querySelector(`[data-symbol="${stock.symbol}"]`);
+        const stockCard = document.querySelector(`.stock-card[data-symbol="${stock.symbol}"]`);
         if (!stockCard) return;
         
-        const priceElement = stockCard.querySelector('.stock-price');
-        const changeElement = stockCard.querySelector('.stock-change');
-        const changePercentElement = stockCard.querySelector('.stock-change-percent');
-        const marketStatusElement = stockCard.querySelector('.market-status');
+        const priceElements = stockCard.querySelectorAll('.stock-price');
+        const changeElements = stockCard.querySelectorAll('.stock-change');
+        const changePercentElements = stockCard.querySelectorAll('.stock-change-percent');
+        const marketStatusElements = stockCard.querySelectorAll('.market-status');
         
-        // Piyasa durumu etiketini güncelle
-        if (marketStatusElement) {
-            marketStatusElement.remove(); // Eski etiketi kaldır
-        }
+        // Eski market-status badge'lerini temizle
+        marketStatusElements.forEach(el => el.remove());
         
-        // Önce eski market-status badge'lerini temizle
-        const oldStatusLabel = stockCard.querySelector('.market-status');
-        if (oldStatusLabel) {
-            oldStatusLabel.remove();
-        }
-        
-        // Yeni piyasa durumu etiketini ekle (sadece PRE veya POST için)
+        // Yeni market-status badge'lerini ekle (hem card-stacked hem row-view için)
+        let marketStatusLabel = '';
         if (stock.marketStatus === 'premarket') {
-            const statusLabel = document.createElement('div');
-            statusLabel.className = 'market-status inline-badge premarket';
-            statusLabel.textContent = 'PRE';
-            stockCard.insertBefore(statusLabel, stockCard.querySelector('h2'));
+            marketStatusLabel = '<div class="market-status inline-badge premarket">PRE</div>';
         } else if (stock.marketStatus === 'postmarket') {
-            const statusLabel = document.createElement('div');
-            statusLabel.className = 'market-status inline-badge postmarket';
-            statusLabel.textContent = 'POST';
-            stockCard.insertBefore(statusLabel, stockCard.querySelector('h2'));
+            marketStatusLabel = '<div class="market-status inline-badge postmarket">POST</div>';
         }
-        // Normal market (REGULAR) durumunda hiçbir badge eklenmez
         
-        if (priceElement) {
+        // Card-stacked için
+        const cardStacked = stockCard.querySelector('.card-stacked');
+        if (cardStacked && marketStatusLabel) {
+            cardStacked.insertAdjacentHTML('afterbegin', marketStatusLabel);
+        }
+        
+        // Row-view için (fiyat kolonunda)
+        const cellPrice = stockCard.querySelector('.row-view .cell-price');
+        if (cellPrice && marketStatusLabel) {
+            const firstChild = cellPrice.firstChild;
+            cellPrice.insertAdjacentHTML('afterbegin', marketStatusLabel);
+        }
+        
+        // Fiyatları güncelle (tüm elementler için)
+        priceElements.forEach(priceElement => {
             // Fiyat değişimini vurgula
             if (stock.price > oldPrice) {
                 priceElement.style.color = '#2ecc71';
@@ -1221,31 +1184,34 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const sourceBadge = sourceBadgeFor(stock);
             priceElement.innerHTML = `${currency}${Number(displayPriceValue).toFixed(2)} ${sourceBadge}`;
-            console.log(`[CARD UPDATE] ${stock.symbol} price: ${displayPriceValue}, change: ${stock.change}, changePercent: ${stock.changePercent}`);
-        }
+        });
+        console.log(`[CARD UPDATE] ${stock.symbol} price: ${displayPriceValue}, change: ${stock.change}, changePercent: ${stock.changePercent}`);
         
-        if (changeElement) {
+        // Değişim değerlerini güncelle (tüm elementler için)
+        changeElements.forEach(changeElement => {
             const sign = Number(stock.change) >= 0 ? '+' : '';
+            const currency = stock.symbol.endsWith('.IS') ? '₺' : '$';
             changeElement.textContent = `${sign}${Number(stock.change).toFixed(2)}`;
             changeElement.style.color = Number(stock.change) >= 0 ? '#2ecc71' : '#e74c3c';
             changeElement.className = `stock-change ${Number(stock.change) >= 0 ? 'positive' : 'negative'}`;
-        }
+        });
         
-        if (changePercentElement) {
+        // Yüzde değerlerini güncelle (tüm elementler için)
+        changePercentElements.forEach(changePercentElement => {
             const sign = Number(stock.changePercent) >= 0 ? '+' : '';
-            changePercentElement.textContent = `(${sign}${Number(stock.changePercent).toFixed(2)}%)`;
+            changePercentElement.textContent = `${sign}${Number(stock.changePercent).toFixed(2)}%`;
             changePercentElement.style.color = Number(stock.changePercent) >= 0 ? '#2ecc71' : '#e74c3c';
             changePercentElement.className = `stock-change-percent ${Number(stock.changePercent) >= 0 ? 'positive' : 'negative'}`;
-        }
+        });
         
-        // Teknik Analiz özetini güncelle (UZUN VADELİ)
+        // Update Technical Analysis summary (LONG TERM)
         let taElement = stockCard.querySelector('.ta-summary');
         if (stock.technicalAnalysis) {
             const ta = stock.technicalAnalysis;
             let trendEmoji, trendColor, trendShort;
             
             if (ta.signals.overall === 'STRONG_BULLISH') {
-                trendEmoji = '�'; trendColor = '#00ff00'; trendShort = 'Güçlü Yükseliş';
+                trendEmoji = '🚀'; trendColor = '#00ff00'; trendShort = 'Güçlü Yükseliş';
             } else if (ta.signals.overall === 'BULLISH') {
                 trendEmoji = '📈'; trendColor = '#51cf66'; trendShort = 'Yükseliş';
             } else if (ta.signals.overall === 'STRONG_BEARISH') {
@@ -1267,23 +1233,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (pos < 20) {
                     positionText = 'Dip Fiyat';
                     positionBadge = '🟢';
-                    positionTooltip = 'Fiyat destek seviyelerine çok yakın. Ekleme yapmak için çok iyi bir seviye.';
+                    positionTooltip = 'Price very close to support levels. Excellent level for adding positions.';
                 } else if (pos < 40) {
                     positionText = 'İyi Fiyat';
-                    positionBadge = '💚';
-                    positionTooltip = 'Fiyat destek seviyelerine yakın. Ekleme yapmak için iyi bir seviye.';
+                    positionBadge = '🟢';
+                    positionTooltip = 'Price close to support levels. Good level for adding positions.';
                 } else if (pos < 60) {
                     positionText = 'Orta Fiyat';
                     positionBadge = '🟡';
-                    positionTooltip = 'Fiyat orta seviyelerde. Ne çok ucuz ne çok pahalı.';
+                    positionTooltip = 'Price at mid-levels. Neither cheap nor expensive.';
                 } else if (pos < 80) {
                     positionText = 'Yüksek Fiyat';
                     positionBadge = '🟠';
-                    positionTooltip = 'Fiyat direnç seviyelerine yakın. Kısmi satış düşünülebilir.';
+                    positionTooltip = 'Price close to resistance levels. Consider partial profit taking.';
                 } else {
                     positionText = 'Tepe Fiyat';
                     positionBadge = '🔴';
-                    positionTooltip = 'Fiyat direnç seviyelerine çok yakın. Kısmi kar realizasyonu yapılabilir.';
+                    positionTooltip = 'Price very close to resistance levels. Partial profit realization recommended.';
                 }
             }
             
@@ -1323,6 +1289,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 taElement.style.cssText = 'margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.1);';
                 taElement.innerHTML = taHtml;
                 stockCard.appendChild(taElement);
+            }
+            
+            // Row-view kolonlarını da güncelle
+            const rowView = stockCard.querySelector('.row-view');
+            if (rowView) {
+                // Trend kolonunu güncelle
+                const trendCell = rowView.querySelector('.cell-trend .trend-text');
+                if (trendCell) {
+                    trendCell.style.color = trendColor;
+                    trendCell.textContent = `${trendEmoji} ${trendShort}`;
+                }
+                
+                // Position kolonunu güncelle
+                const positionCell = rowView.querySelector('.cell-position');
+                if (positionCell) {
+                    if (positionBadge && positionText) {
+                        positionCell.innerHTML = `<span class="position-badge">${positionBadge} ${positionText}</span>`;
+                    } else {
+                        positionCell.textContent = '-';
+                    }
+                }
+                
+                // Buy/Sell kolonlarını güncelle
+                const buyCell = rowView.querySelector('.cell-buy .buy-price');
+                const sellCell = rowView.querySelector('.cell-sell .sell-price');
+                if (buyCell && ta.recommendations) {
+                    buyCell.textContent = `${currency}${ta.recommendations.buyPrice.toFixed(2)}`;
+                }
+                if (sellCell && ta.recommendations) {
+                    sellCell.textContent = `${currency}${ta.recommendations.sellPrice.toFixed(2)}`;
+                }
             }
         }
     }
@@ -1378,38 +1375,30 @@ document.addEventListener('DOMContentLoaded', () => {
             stockCard.insertBefore(statusLabel, stockCard.querySelector('h2'));
         }
         
-        if (priceElement) {
-            // Fiyat değişimini vurgula
+        const currency = stock.symbol.endsWith('.IS') ? '₺' : '$';
+        priceElements.forEach(pe => {
             if (stock.price > oldPrice) {
-                priceElement.style.color = '#2ecc71';
-                priceElement.style.animation = 'priceUp 0.5s ease-in-out';
+                pe.style.color = '#2ecc71';
+                pe.style.animation = 'priceUp 0.5s ease-in-out';
             } else if (stock.price < oldPrice) {
-                priceElement.style.color = '#e74c3c';
-                priceElement.style.animation = 'priceDown 0.5s ease-in-out';
+                pe.style.color = '#e74c3c';
+                pe.style.animation = 'priceDown 0.5s ease-in-out';
             }
-            
-            setTimeout(() => {
-                priceElement.style.color = '';
-                priceElement.style.animation = '';
-            }, 500);
-            
-            const currency = stock.symbol.endsWith('.IS') ? '₺' : '$';
-            priceElement.textContent = `${currency}${Number(stock.price).toFixed(2)}`;
-        }
-        
-        if (changeElement) {
-            const sign = Number(stock.change) >= 0 ? '+' : '';
-            changeElement.textContent = `${sign}${Number(stock.change).toFixed(2)}`;
-            changeElement.style.color = Number(stock.change) >= 0 ? '#2ecc71' : '#e74c3c';
-            changeElement.className = `stock-change ${Number(stock.change) >= 0 ? 'positive' : 'negative'}`;
-        }
-        
-        if (changePercentElement) {
-            const sign = Number(stock.changePercent) >= 0 ? '+' : '';
-            changePercentElement.textContent = `(${sign}${Number(stock.changePercent).toFixed(2)}%)`;
-            changePercentElement.style.color = Number(stock.changePercent) >= 0 ? '#2ecc71' : '#e74c3c';
-            changePercentElement.className = `stock-change-percent ${Number(stock.changePercent) >= 0 ? 'positive' : 'negative'}`;
-        }
+            setTimeout(() => { pe.style.color=''; pe.style.animation=''; }, 500);
+            pe.textContent = `${currency}${Number(stock.price).toFixed(2)}`;
+        });
+        const sign = Number(stock.change) >= 0 ? '+' : '';
+        changeElements.forEach(ce => {
+            ce.textContent = `${sign}${Number(stock.change).toFixed(2)}`;
+            ce.style.color = Number(stock.change) >= 0 ? '#2ecc71' : '#e74c3c';
+            ce.className = `stock-change ${Number(stock.change) >= 0 ? 'positive' : 'negative'}`;
+        });
+        changePercentElements.forEach(cpe => {
+            const signPct = Number(stock.changePercent) >= 0 ? '+' : '';
+            cpe.textContent = `${signPct}${Number(stock.changePercent).toFixed(2)}%`;
+            cpe.style.color = Number(stock.changePercent) >= 0 ? '#2ecc71' : '#e74c3c';
+            cpe.className = `stock-change-percent ${Number(stock.changePercent) >= 0 ? 'positive' : 'negative'}`;
+        });
     }
 
     loadInitialStocks();
@@ -1420,6 +1409,58 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshBtn.addEventListener('click', () => {
         updateAllStockPrices();
     });
+
+    // ================= View Toggle (Card/List) ==================
+    const cardViewBtn = document.getElementById('card-view-btn');
+    const listViewBtn = document.getElementById('list-view-btn');
+
+    // localStorage'dan görünüm modunu yükle
+    const savedViewMode = localStorage.getItem('viewMode') || 'card';
+    if (savedViewMode === 'list') {
+        stockContainer.classList.add('list-view');
+        cardViewBtn.classList.remove('active');
+        listViewBtn.classList.add('active');
+        addListViewHeader();
+    }
+
+    cardViewBtn.addEventListener('click', () => {
+        stockContainer.classList.remove('list-view');
+        cardViewBtn.classList.add('active');
+        listViewBtn.classList.remove('active');
+        localStorage.setItem('viewMode', 'card');
+        const header = document.querySelector('.list-view-header');
+        if (header) header.remove();
+    });
+
+    listViewBtn.addEventListener('click', () => {
+        stockContainer.classList.add('list-view');
+        listViewBtn.classList.add('active');
+        cardViewBtn.classList.remove('active');
+        localStorage.setItem('viewMode', 'list');
+        addListViewHeader();
+    });
+
+    function addListViewHeader() {
+        if (!document.querySelector('.list-view-header')) {
+            const header = document.createElement('div');
+            header.className = 'list-view-header';
+            header.style.display = 'grid';
+            header.style.gridTemplateColumns = '24px repeat(8,1fr)';
+            header.style.alignItems = 'center';
+            header.innerHTML = `
+                <div class="hcol"></div>
+                <div class="hcol">Sembol</div>
+                <div class="hcol">Fiyat</div>
+                <div class="hcol">Değişim</div>
+                <div class="hcol">%</div>
+                <div class="hcol">Trend</div>
+                <div class="hcol">Ucuzluk</div>
+                <div class="hcol">Ekleme</div>
+                <div class="hcol">Satış</div>
+            `;
+            stockContainer.parentElement.insertBefore(header, stockContainer);
+        }
+    }
 
     // ================= Debug / Observation Panel ==================
     function formatPrice(v){
@@ -1479,6 +1520,146 @@ document.addEventListener('DOMContentLoaded', () => {
         closeDebugBtn.addEventListener('click', () => { if(debugPanelEnabled) toggleDebugPanel(); });
     }
 
+    // Global Legend Modal Event Listeners
+    const globalLegendBtn = document.getElementById('global-legend-btn');
+    const globalLegendModal = document.getElementById('global-legend-modal');
+    const globalLegendClose = document.getElementById('global-legend-close');
+
+    if(globalLegendBtn){
+        globalLegendBtn.addEventListener('click', () => {
+            if(globalLegendModal){
+                globalLegendModal.style.display = 'flex';
+            }
+        });
+    }
+
+    if(globalLegendClose){
+        globalLegendClose.addEventListener('click', () => {
+            if(globalLegendModal){
+                globalLegendModal.style.display = 'none';
+            }
+        });
+    }
+
+    if(globalLegendModal){
+        globalLegendModal.addEventListener('click', (e) => {
+            if(e.target === globalLegendModal){
+                globalLegendModal.style.display = 'none';
+            }
+        });
+    }
+
+    // Close modal with ESC key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' || e.key === 'Esc') {
+            if (globalLegendModal && globalLegendModal.style.display === 'flex') {
+                globalLegendModal.style.display = 'none';
+            }
+        }
+    });
+
+    // Sort Buttons - Daily Performance Sorting
+    let currentSortMode = 'manual'; // 'manual', 'gainers', 'losers'
+    let originalOrder = []; // Save original order
+    
+    const sortGainersBtn = document.getElementById('sort-gainers-btn');
+    const sortLosersBtn = document.getElementById('sort-losers-btn');
+    const sortResetBtn = document.getElementById('sort-reset-btn');
+
+    function saveOriginalOrder() {
+        originalOrder = Array.from(stockContainer.children).map(card => card.dataset.symbol);
+    }
+
+    function sortStocksByPerformance(mode) {
+        const stockCards = Array.from(stockContainer.children);
+        
+        stockCards.sort((a, b) => {
+            const stockA = stocks.find(s => s.symbol === a.dataset.symbol);
+            const stockB = stocks.find(s => s.symbol === b.dataset.symbol);
+            
+            if (!stockA || !stockB) return 0;
+            
+            const changeA = stockA.changePercent || 0;
+            const changeB = stockB.changePercent || 0;
+            
+            if (mode === 'gainers') {
+                return changeB - changeA; // Büyükten küçüğe (en çok yükselenler)
+            } else if (mode === 'losers') {
+                return changeA - changeB; // Küçükten büyüğe (en çok düşenler)
+            }
+            return 0;
+        });
+
+        // Sıralanmış kartları yeniden ekle
+        stockCards.forEach(card => stockContainer.appendChild(card));
+    }
+
+    function restoreOriginalOrder() {
+        const stockCards = Array.from(stockContainer.children);
+        
+        stockCards.sort((a, b) => {
+            const indexA = originalOrder.indexOf(a.dataset.symbol);
+            const indexB = originalOrder.indexOf(b.dataset.symbol);
+            return indexA - indexB;
+        });
+
+        stockCards.forEach(card => stockContainer.appendChild(card));
+    }
+
+    function updateSortButtons(mode) {
+        sortGainersBtn.classList.remove('active');
+        sortLosersBtn.classList.remove('active');
+        sortResetBtn.classList.remove('active');
+
+        if (mode === 'gainers') {
+            sortGainersBtn.classList.add('active');
+            sortResetBtn.style.display = 'flex';
+        } else if (mode === 'losers') {
+            sortLosersBtn.classList.add('active');
+            sortResetBtn.style.display = 'flex';
+        } else {
+            sortResetBtn.classList.add('active');
+            sortResetBtn.style.display = 'none';
+        }
+    }
+
+    if(sortGainersBtn) {
+        sortGainersBtn.addEventListener('click', () => {
+            if (currentSortMode !== 'gainers') {
+                if (currentSortMode === 'manual') {
+                    saveOriginalOrder();
+                }
+                currentSortMode = 'gainers';
+                sortStocksByPerformance('gainers');
+                updateSortButtons('gainers');
+            }
+        });
+    }
+
+    if(sortLosersBtn) {
+        sortLosersBtn.addEventListener('click', () => {
+            if (currentSortMode !== 'losers') {
+                if (currentSortMode === 'manual') {
+                    saveOriginalOrder();
+                }
+                currentSortMode = 'losers';
+                sortStocksByPerformance('losers');
+                updateSortButtons('losers');
+            }
+        });
+    }
+
+    if(sortResetBtn) {
+        sortResetBtn.addEventListener('click', () => {
+            if (currentSortMode !== 'manual') {
+                currentSortMode = 'manual';
+                restoreOriginalOrder();
+                updateSortButtons('manual');
+            }
+        });
+    }
+
     // Periyodik olarak debug tablosunu güncelle (aktifse)
     setInterval(() => { if(debugPanelEnabled) renderDebugTable(); }, 5000);
 });
+
