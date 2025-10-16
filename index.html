@@ -16,41 +16,451 @@
                 <div class="logo-icon">📈</div>
                 <h1 class="app-title">StockScope</h1>
             </div>
-            <button id="global-legend-btn" class="info-btn" title="Renk ve sembol açıklamaları">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
-                </svg>
-            </button>
+            <div class="header-actions">
+                <button id="strategy-btn" class="info-btn" title="Kullanılan Stratejiler ve İndikatörler">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
+                        <circle cx="12" cy="12" r="3"/>
+                    </svg>
+                </button>
+                <button id="global-legend-btn" class="info-btn" title="Renk ve sembol açıklamaları">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                    </svg>
+                </button>
+                <button id="signin-btn" class="signin-btn" style="display: none;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                        <polyline points="10 17 15 12 10 7"></polyline>
+                        <line x1="15" y1="12" x2="3" y2="12"></line>
+                    </svg>
+                    Giriş Yap
+                </button>
+                <div id="user-profile" style="display: none;">
+                    <img id="user-avatar" src="" alt="User" style="width: 32px; height: 32px; border-radius: 50%; cursor: pointer; border: 2px solid #3498db;">
+                    <div id="user-menu" class="user-menu" style="display: none;">
+                        <div class="user-menu-header">
+                            <img id="user-menu-avatar" src="" alt="User">
+                            <div>
+                                <div id="user-menu-name"></div>
+                                <div id="user-menu-email"></div>
+                            </div>
+                        </div>
+                        <button id="logout-btn" class="logout-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                <polyline points="16 17 21 12 16 7"></polyline>
+                                <line x1="21" y1="12" x2="9" y2="12"></line>
+                            </svg>
+                            Çıkış Yap
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </header>
+    
+    <!-- Login Modal -->
+    <div id="login-modal" class="login-modal">
+        <div class="login-content">
+            <button class="login-close" id="login-close-btn">×</button>
+            <div class="login-header">
+                <div class="login-icon">🔐</div>
+                <h2>Giriş Yap</h2>
+                <p>Hesabınızı seçin veya offline devam edin.</p>
+            </div>
+            <div class="login-body">
+                <button id="google-login-btn" class="google-login-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    <span>Google ile Giriş Yap</span>
+                </button>
+                
+                <div class="login-divider">
+                    <span>veya</span>
+                </div>
+                
+                <button id="offline-mode-btn" class="offline-mode-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                        <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    <span>Offline Mod</span>
+                </button>
+                
+                <div class="login-features">
+                    <div class="feature-row">
+                        <div class="feature-col">
+                            <div class="feature-icon">☁️</div>
+                            <div class="feature-text">Bulut sync.</div>
+                        </div>
+                        <div class="feature-col">
+                            <div class="feature-icon">🔒</div>
+                            <div class="feature-text">Güvenli.</div>
+                        </div>
+                        <div class="feature-col">
+                            <div class="feature-icon">📱</div>
+                            <div class="feature-text">Çoklu cihaz.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Strategy Modal -->
+    <div id="strategy-modal" class="legend-info-modal" style="display: none;">
+        <div class="legend-content" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+            <div class="legend-header" style="display: flex; justify-content: center; align-items: center; position: relative; padding: 15px 45px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <h3 style="margin: 0; color: #fff; font-size: 1.5em; letter-spacing: 2px; font-weight: 700;">📊 KULLANILAN STRATEJİLER</h3>
+                <button id="strategy-close" class="legend-close" style="position: absolute; right: 10px; background: none; border: none; color: #fff; font-size: 1.8em; cursor: pointer; padding: 0; width: 35px; height: 35px; transition: all 0.2s;">×</button>
+            </div>
+            <div class="legend-body" style="padding: 20px 25px;">
+                
+                <!-- Genel Bakış -->
+                <div style="background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)); padding: 20px; border-radius: 12px; margin-bottom: 25px; border-left: 4px solid #667eea;">
+                    <h4 style="color: #667eea; margin: 0 0 12px 0; font-size: 1.3em; font-weight: 700;">🎯 Genel Yaklaşım</h4>
+                    <p style="color: #ddd; line-height: 1.8; margin: 0; font-size: 0.95em;">
+                        StockScope, <strong style="color: #fff;">profesyonel traderların kullandığı kanıtlanmış teknik analiz yöntemlerini</strong> birleştirerek size güvenilir alım-satım sinyalleri sunar. Sistemimiz, <strong style="color: #00ff88;">momentum</strong>, <strong style="color: #4a9eff;">trend takibi</strong>, <strong style="color: #f39c12;">hacim analizi</strong> ve <strong style="color: #e74c3c;">destek-direnç seviyeleri</strong> gibi temel stratejileri bir araya getirerek kapsamlı bir analiz sağlar.
+                    </p>
+                </div>
+                
+                <!-- Destek ve Direnç Analizi -->
+                <div class="legend-section">
+                    <h4 style="color: #3498db; margin: 0 0 15px 0; font-size: 1.2em; font-weight: 700; border-bottom: 2px solid rgba(52, 152, 219, 0.3); padding-bottom: 8px;">📍 DESTEK VE DİRENÇ SEVİYELERİ</h4>
+                    
+                    <div style="background: rgba(46, 204, 113, 0.08); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #2ecc71;">
+                        <h5 style="color: #2ecc71; margin: 0 0 10px 0; font-size: 1.05em; font-weight: 600;">🟢 Destek Seviyeleri (Alım Noktaları)</h5>
+                        <p style="color: #bbb; line-height: 1.7; margin: 0 0 10px 0; font-size: 0.9em;">
+                            <strong style="color: #2ecc71;">Destek</strong>, fiyatın düştüğünde alım baskısı nedeniyle yeniden yükselmeye başladığı fiyat seviyesidir. Sistemimiz destek seviyelerini belirlerken:
+                        </p>
+                        <ul style="color: #aaa; line-height: 1.8; margin: 5px 0 0 20px; padding: 0; font-size: 0.88em;">
+                            <li><strong style="color: #fff;">Hareketli Ortalamalar (MA21, MA50, MA100, MA200):</strong> Profesyonel trader'ların en çok kullandığı dinamik destek seviyeleri. MA21 ve MA50 kısa vadeli, MA100 ve MA200 uzun vadeli destek sağlar. Fiyat bu seviyelere geldiğinde güçlü alım girer.</li>
+                            <li><strong style="color: #fff;">Psikolojik Seviyeler:</strong> Yuvarlak sayılar ($50, $100, $150, $200, $250, vb.) trader'ların zihninde önemli. Fiyat bu seviyelere yaklaştığında güçlü reaksiyonlar görülür.</li>
+                            <li><strong style="color: #fff;">Dinamik Volatilite Analizi:</strong> Hissenin oynaklığına göre son 40-100 günlük geçmiş veriler incelenir. Yüksek volatiliteli hisseler için (EOSE, HOOD gibi) daha kısa dönem (40-60 gün), stabil hisseler için (AAPL, MSFT) daha uzun dönem (80-100 gün) kullanılır.</li>
+                            <li><strong style="color: #fff;">Yakınlık Ağırlıklandırması:</strong> Güncel fiyata yakın seviyeler daha fazla öncelik alır. Uzak seviyeler daha düşük ağırlıkla hesaplanır.</li>
+                            <li><strong style="color: #fff;">Kümelenme Algoritması:</strong> Birbirine çok yakın (volatiliteye göre %1.5-%2.5) seviyeler tek bir güçlü destek olarak birleştirilir.</li>
+                            <li><strong style="color: #fff;">Maksimum Mesafe Filtresi:</strong> Güncel fiyattan %15-20'den fazla uzak seviyeler elenir (volatiliteye bağlı).</li>
+                            <li><strong style="color: #fff;">Fiyat Artış Yoğunluğu:</strong> O seviyeden toparlanma gücü ölçülür ve en güçlü seviyeler seçilir.</li>
+                        </ul>
+                        <div style="background: rgba(46, 204, 113, 0.1); padding: 10px; border-radius: 6px; margin-top: 12px;">
+                            <strong style="color: #2ecc71;">💡 Kullanım:</strong> <span style="color: #ddd; font-size: 0.88em;">Fiyat 1. Destek'e yaklaştığında pozisyon açın veya mevcut pozisyona ekleme yapın. 2. Destek, daha agresif alım için ikincil noktadır. MA50 ve MA200 özellikle güçlü destek seviyeleridir.</span>
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(231, 76, 60, 0.08); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #e74c3c;">
+                        <h5 style="color: #e74c3c; margin: 0 0 10px 0; font-size: 1.05em; font-weight: 600;">🔴 Direnç Seviyeleri (Satış Noktaları)</h5>
+                        <p style="color: #bbb; line-height: 1.7; margin: 0 0 10px 0; font-size: 0.9em;">
+                            <strong style="color: #e74c3c;">Direnç</strong>, fiyatın yükselirken satış baskısı nedeniyle geri düştüğü fiyat seviyesidir. Direnç hesaplaması için:
+                        </p>
+                        <ul style="color: #aaa; line-height: 1.8; margin: 5px 0 0 20px; padding: 0; font-size: 0.88em;">
+                            <li><strong style="color: #fff;">Hareketli Ortalamalar (MA Direnci):</strong> Fiyat hareketli ortalamaların altındayken, bu seviyeler direnç olarak çalışır. Özellikle MA50 ve MA200 güçlü dirençlerdir.</li>
+                            <li><strong style="color: #fff;">Psikolojik Dirençler:</strong> Yuvarlak sayılar ($250, $300, $500) fiyatın duraksadığı noktalardır. Trader'lar buralarda kar realizasyonuna gider.</li>
+                            <li><strong style="color: #fff;">Tepe Noktaları Analizi:</strong> Geçmişte fiyatın birden fazla kez geri döndüğü zirveler belirlenir.</li>
+                            <li><strong style="color: #fff;">Hacim Onayı:</strong> Yüksek hacimle test edilen seviyeler daha güçlü direnç olarak kabul edilir.</li>
+                            <li><strong style="color: #fff;">Fibonacci Seviyeleri:</strong> %23.6, %38.2, %50, %61.8, %100, %127.2, %161.8 seviyeleri hesaplanır ve güçlü dirençlerle birleştirilir.</li>
+                            <li><strong style="color: #fff;">Tüm Zamanların Zirvesi (ATH):</strong> En yüksek fiyat seviyesi psikolojik olarak çok güçlü bir dirençtir.</li>
+                        </ul>
+                        <div style="background: rgba(231, 76, 60, 0.1); padding: 10px; border-radius: 6px; margin-top: 12px;">
+                            <strong style="color: #e74c3c;">💡 Kullanım:</strong> <span style="color: #ddd; font-size: 0.88em;">Fiyat 1. Direnç'e yaklaştığında kısmi kar realizasyonu yapın (%30-50). 2. Direnç'te kalan pozisyonu kapatın veya stop-loss'u yükseltin. Psikolojik seviyelerde özellikle dikkatli olun.</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Teknik İndikatörler -->
+                <div class="legend-section" style="margin-top: 25px;">
+                    <h4 style="color: #3498db; margin: 0 0 15px 0; font-size: 1.2em; font-weight: 700; border-bottom: 2px solid rgba(52, 152, 219, 0.3); padding-bottom: 8px;">📈 TEKNİK İNDİKATÖRLER</h4>
+                    
+                    <!-- SuperTrend -->
+                    <div style="background: rgba(0, 255, 136, 0.05); padding: 15px; border-radius: 8px; margin-bottom: 12px; border: 1px solid rgba(0, 255, 136, 0.2);">
+                        <h5 style="color: #00ff88; margin: 0 0 8px 0; font-size: 1em; font-weight: 600;">🟢 SuperTrend (ATR Bazlı Trend Takibi)</h5>
+                        <p style="color: #bbb; line-height: 1.7; margin: 0; font-size: 0.88em;">
+                            <strong>SuperTrend</strong>, Average True Range (ATR) kullanarak piyasanın kısa-orta vadeli trendini belirler. <strong style="color: #00ff88;">Parametreler:</strong> Period=10, Multiplier=3.
+                        </p>
+                        <ul style="color: #aaa; line-height: 1.7; margin: 8px 0 0 20px; padding: 0; font-size: 0.85em;">
+                            <li><strong style="color: #00ff88;">🟢 LONG Sinyali:</strong> Fiyat SuperTrend çizgisinin üstüne çıktı. Yükseliş trendi başladı, pozisyon tutmaya devam edin.</li>
+                            <li><strong style="color: #ff4444;">🔴 SHORT Sinyali:</strong> Fiyat SuperTrend çizgisinin altına düştü. Düşüş trendi başladı, pozisyonu azaltın veya çıkın.</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- UT Bot -->
+                    <div style="background: rgba(74, 158, 255, 0.05); padding: 15px; border-radius: 8px; margin-bottom: 12px; border: 1px solid rgba(74, 158, 255, 0.2);">
+                        <h5 style="color: #4a9eff; margin: 0 0 8px 0; font-size: 1em; font-weight: 600;">🔵 UT Bot Alerts (Gelişmiş Trend Göstergesi)</h5>
+                        <p style="color: #bbb; line-height: 1.7; margin: 0; font-size: 0.88em;">
+                            <strong>UT Bot</strong>, ATR ve exponential moving average (EMA) kombinasyonu ile ana trend yönünü belirler. SuperTrend'e göre daha az false sinyal verir. <strong style="color: #4a9eff;">Parametreler:</strong> ATR Period=1, Sensitivity=1.
+                        </p>
+                        <ul style="color: #aaa; line-height: 1.7; margin: 8px 0 0 20px; padding: 0; font-size: 0.85em;">
+                            <li><strong style="color: #4a9eff;">🔵 LONG Sinyali:</strong> Ana trend pozitif. Uzun vadeli pozisyon tutmak için güvenli.</li>
+                            <li><strong style="color: #ff4444;">🔴 SHORT Sinyali:</strong> Ana trend negatif. Pozisyondan çıkmayı ciddi olarak değerlendirin.</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- RSI -->
+                    <div style="background: rgba(243, 156, 18, 0.05); padding: 15px; border-radius: 8px; margin-bottom: 12px; border: 1px solid rgba(243, 156, 18, 0.2);">
+                        <h5 style="color: #f39c12; margin: 0 0 8px 0; font-size: 1em; font-weight: 600;">📊 RSI - Relative Strength Index (Momentum Göstergesi)</h5>
+                        <p style="color: #bbb; line-height: 1.7; margin: 0; font-size: 0.88em;">
+                            <strong>RSI</strong>, fiyat hareketlerinin momentum gücünü 0-100 arasında ölçer. <strong style="color: #f39c12;">Parametreler:</strong> Period=14 (standart).
+                        </p>
+                        <ul style="color: #aaa; line-height: 1.7; margin: 8px 0 0 20px; padding: 0; font-size: 0.85em;">
+                            <li><strong style="color: #00ff88;">RSI < 30:</strong> Aşırı satım bölgesi. Fiyat çok düştü, toparlanma yakın olabilir → <strong>ALIM FIRSATI</strong></li>
+                            <li><strong style="color: #95a5a6;">RSI 30-70:</strong> Normal bölge. Trend devam ediyor → <strong>POZİSYON TUTUN</strong></li>
+                            <li><strong style="color: #ff6b6b;">RSI > 70:</strong> Aşırı alım bölgesi. Fiyat çok yükseldi, geri çekilme yakın olabilir → <strong>KAR REALİZASYONU</strong></li>
+                        </ul>
+                    </div>
+                    
+                    <!-- MACD -->
+                    <div style="background: rgba(155, 89, 182, 0.05); padding: 15px; border-radius: 8px; margin-bottom: 12px; border: 1px solid rgba(155, 89, 182, 0.2);">
+                        <h5 style="color: #9b59b6; margin: 0 0 8px 0; font-size: 1em; font-weight: 600;">📉 MACD - Moving Average Convergence Divergence</h5>
+                        <p style="color: #bbb; line-height: 1.7; margin: 0; font-size: 0.88em;">
+                            <strong>MACD</strong>, iki exponential moving average (EMA) arasındaki farkı gösterir ve momentum değişimlerini yakalar. <strong style="color: #9b59b6;">Parametreler:</strong> Fast=12, Slow=26, Signal=9.
+                        </p>
+                        <ul style="color: #aaa; line-height: 1.7; margin: 8px 0 0 20px; padding: 0; font-size: 0.85em;">
+                            <li><strong style="color: #00ff88;">🚀 Altın Kesişim (Golden Cross):</strong> MACD çizgisi sinyal çizgisini yukarı kesti. Güçlü alım sinyali → <strong>AL</strong></li>
+                            <li><strong style="color: #ff4444;">💀 Ölüm Kesişimi (Death Cross):</strong> MACD çizgisi sinyal çizgisini aşağı kesti. Güçlü satış sinyali → <strong>SAT</strong></li>
+                            <li><strong style="color: #f39c12;">Pozitif/Negatif Histogram:</strong> Momentum gücünü gösterir. Yükselen histogram = güçlenen momentum.</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- OBV -->
+                    <div style="background: rgba(26, 188, 156, 0.05); padding: 15px; border-radius: 8px; margin-bottom: 12px; border: 1px solid rgba(26, 188, 156, 0.2);">
+                        <h5 style="color: #1abc9c; margin: 0 0 8px 0; font-size: 1em; font-weight: 600;">📊 OBV - On-Balance Volume (Hacim Analizi)</h5>
+                        <p style="color: #bbb; line-height: 1.7; margin: 0; font-size: 0.88em;">
+                            <strong>OBV</strong>, hacim akışını izleyerek "akıllı para" hareketlerini tespit eder. Fiyat ile hacim arasındaki uyumsuzluklar (divergence) güçlü sinyaller verir.
+                        </p>
+                        <ul style="color: #aaa; line-height: 1.7; margin: 8px 0 0 20px; padding: 0; font-size: 0.85em;">
+                            <li><strong style="color: #00ff88;">💚 Yükseliş Diverjansı (Bullish Divergence):</strong> Fiyat düşüyor ama OBV yükseliyor. Gizli alım var, toparlanma yakın → <strong>ERKEN ALIM FIRSATI</strong></li>
+                            <li><strong style="color: #ff6b6b;">⚠️ Düşüş Diverjansı (Bearish Divergence):</strong> Fiyat yükseliyor ama OBV düşüyor. Zayıf hareket, düşüş gelebilir → <strong>DİKKATLİ OLUN</strong></li>
+                            <li><strong style="color: #95a5a6;">Normal:</strong> Fiyat ve hacim uyumlu hareket ediyor. Özel sinyal yok.</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Sinyal Sistemi -->
+                <div class="legend-section" style="margin-top: 25px;">
+                    <h4 style="color: #3498db; margin: 0 0 15px 0; font-size: 1.2em; font-weight: 700; border-bottom: 2px solid rgba(52, 152, 219, 0.3); padding-bottom: 8px;">🎯 SİNYAL SİSTEMİ VE KARAR VERME</h4>
+                    
+                    <div style="background: rgba(52, 152, 219, 0.08); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #3498db;">
+                        <h5 style="color: #3498db; margin: 0 0 10px 0; font-size: 1.05em; font-weight: 600;">📊 Genel Trend (Overall Signal)</h5>
+                        <p style="color: #bbb; line-height: 1.7; margin: 0 0 10px 0; font-size: 0.9em;">
+                            Sistem, tüm indikatörleri birleştirerek genel bir trend yönü hesaplar:
+                        </p>
+                        <ul style="color: #aaa; line-height: 1.8; margin: 5px 0 0 20px; padding: 0; font-size: 0.88em;">
+                            <li><strong style="color: #00ff88;">🚀 Güçlü Yükseliş:</strong> Tüm indikatörler pozitif, momentum çok güçlü → <strong>Agresif AL</strong></li>
+                            <li><strong style="color: #2ecc71;">📈 Yükseliş:</strong> Çoğu indikatör pozitif → <strong>AL</strong></li>
+                            <li><strong style="color: #f39c12;">➡️ Yatay:</strong> Karışık sinyaller, net yön yok → <strong>BEKLE</strong></li>
+                            <li><strong style="color: #ff6b6b;">📉 Düşüş:</strong> Çoğu indikatör negatif → <strong>SAT</strong></li>
+                            <li><strong style="color: #ff4444;">💥 Güçlü Düşüş:</strong> Tüm indikatörler negatif, momentum çok zayıf → <strong>Hızlı SAT</strong></li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background: rgba(46, 204, 113, 0.08); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #2ecc71;">
+                        <h5 style="color: #2ecc71; margin: 0 0 10px 0; font-size: 1.05em; font-weight: 600;">🎯 Alım Stratejisi (Optimize Edilmiş)</h5>
+                        <p style="color: #ddd; line-height: 1.7; margin: 0; font-size: 0.9em;">
+                            <strong>1. Alım Noktası:</strong> En yakın ve en güçlü destek seviyesi. Sistem, <strong style="color: #00ff88;">güç × yakınlık</strong> skorlaması yaparak optimal seviyeyi belirler. Fiyat buraya geldiğinde pozisyonunuzun <strong>%50-60'ını</strong> açın.
+                        </p>
+                        <p style="color: #ddd; line-height: 1.7; margin: 10px 0 0 0; font-size: 0.9em;">
+                            <strong>2. Alım Noktası:</strong> İkinci güçlü destek seviyesi. <strong style="color: #f39c12;">Önemli:</strong> 1. Alım'dan minimum <strong>%3 daha aşağıda</strong> olmalıdır (örn: 1. Alım $240 ise, 2. Alım maksimum $233). Fiyat daha da düşerse, burada kalan <strong>%40-50'yi</strong> kullanın (maliyet ortalaması düşürme).
+                        </p>
+                        <div style="background: rgba(46, 204, 113, 0.1); padding: 12px; border-radius: 6px; margin-top: 12px;">
+                            <strong style="color: #2ecc71;">💡 Akıllı Seçim Algoritması:</strong> <span style="color: #ddd; font-size: 0.88em;">Sistem, sadece güce değil, güncel fiyata yakınlığa da bakarak skor hesaplar. İki destek seviyesi arasında minimum %3 fark garantisi vardır, böylece anlamlı ekleme noktaları elde edersiniz. MA50, MA200, psikolojik seviyeler ve swing low'lar bir arada değerlendirilerek en optimal 2 seviye seçilir.</span>
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(231, 76, 60, 0.08); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #e74c3c;">
+                        <h5 style="color: #e74c3c; margin: 0 0 10px 0; font-size: 1.05em; font-weight: 600;">💰 Kar Realizasyon Stratejisi (Optimize Edilmiş)</h5>
+                        <p style="color: #ddd; line-height: 1.7; margin: 0; font-size: 0.9em;">
+                            <strong>1. Satış Noktası:</strong> İlk kar realizasyon seviyesi. En yakın ve en güçlü direnç. Pozisyonunuzun <strong>%30-50'sini</strong> buradan satın, geri kalanını 2. Hedef için tutun.
+                        </p>
+                        <p style="color: #ddd; line-height: 1.7; margin: 10px 0 0 0; font-size: 0.9em;">
+                            <strong>2. Hedef (2. Direnç):</strong> Ana kar hedefi. <strong style="color: #f39c12;">Önemli:</strong> 1. Satış'tan minimum <strong>%3 daha yukarıda</strong> olmalıdır (örn: 1. Satış $260 ise, 2. Hedef minimum $268). Kalan pozisyonunuzu buradan kapatın veya stop-loss'u 1. Direnç'e çıkarıp devam edin.
+                        </p>
+                        <div style="background: rgba(231, 76, 60, 0.1); padding: 12px; border-radius: 6px; margin-top: 12px;">
+                            <strong style="color: #e74c3c;">💡 Akıllı Seçim Algoritması:</strong> <span style="color: #ddd; font-size: 0.88em;">İki direnç seviyesi arasında minimum %3 fark garantisi ile, kademeli kar realizasyonu yapabilirsiniz. MA dirençleri, psikolojik seviyeler, swing high'lar ve Fibonacci seviyeleri bir arada değerlendirilerek en optimal 2 hedef belirlenir. Trend devam ederse daha fazla kazanırsınız, geri dönerse zararınızı sınırlamış olursunuz.</span>
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(255, 68, 68, 0.08); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #ff4444;">
+                        <h5 style="color: #ff4444; margin: 0 0 10px 0; font-size: 1.05em; font-weight: 600;">⚠️ Stop Loss (Zarar Durdurma)</h5>
+                        <p style="color: #ddd; line-height: 1.7; margin: 0; font-size: 0.9em;">
+                            <strong>Stop Loss</strong>, kayıplarınızı sınırlamak için kullanılan kritik bir seviyedir. Sistem, 2. Destek seviyesinin biraz altını (genellikle %2-3 daha aşağı) stop loss olarak önerir.
+                        </p>
+                        <div style="background: rgba(255, 68, 68, 0.1); padding: 12px; border-radius: 6px; margin-top: 12px;">
+                            <strong style="color: #ff4444;">⚡ Önemli:</strong> <span style="color: #ddd; font-size: 0.88em;">Stop loss emrinizi mutlaka verin! Disiplinsiz yatırımcılar, zarar eden pozisyonları "toparlanır" umuduyla tutarlar ve büyük kayıplar yaşarlar. Profesyoneller her zaman stop loss kullanır.</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Seviye Seçim Kriterleri (YENİ) -->
+                <div class="legend-section" style="margin-top: 25px;">
+                    <h4 style="color: #3498db; margin: 0 0 15px 0; font-size: 1.2em; font-weight: 700; border-bottom: 2px solid rgba(52, 152, 219, 0.3); padding-bottom: 8px;">🎯 SEVİYE SEÇİM KRİTERLERİ (Optimize Edilmiş Algoritma)</h4>
+                    
+                    <div style="background: rgba(52, 152, 219, 0.08); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #3498db;">
+                        <h5 style="color: #3498db; margin: 0 0 10px 0; font-size: 1.05em; font-weight: 600;">📊 Güç × Yakınlık Skorlaması</h5>
+                        <p style="color: #bbb; line-height: 1.7; margin: 0 0 10px 0; font-size: 0.9em;">
+                            Sistem, sadece seviyenin gücüne (kaç kez test edildi, hacim, MA, psikolojik seviye) değil, aynı zamanda güncel fiyata olan yakınlığına da bakarak skor hesaplar:
+                        </p>
+                        <div style="background: rgba(255, 255, 255, 0.03); padding: 10px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 0.85em; color: #00ff88; margin-bottom: 10px;">
+                            Skor = Güç × (1 / Mesafe)
+                        </div>
+                        <ul style="color: #aaa; line-height: 1.7; margin: 5px 0 0 20px; padding: 0; font-size: 0.88em;">
+                            <li><strong style="color: #fff;">Güç:</strong> MA ağırlığı (MA21: 3.5x, MA50: 3.0x, MA200: 2.0x) + Swing test sayısı + Psikolojik seviye bonusu + Fibonacci bonusu + Hacim yoğunluğu</li>
+                            <li><strong style="color: #fff;">Yakınlık:</strong> Güncel fiyata ne kadar yakınsa skor o kadar yüksek. Örn: %2 mesafedeki seviye, %10 mesafedeki seviyeden 5x daha yüksek skor alır.</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background: rgba(243, 156, 18, 0.08); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #f39c12;">
+                        <h5 style="color: #f39c12; margin: 0 0 10px 0; font-size: 1.05em; font-weight: 600;">📏 Minimum %3 Mesafe Garantisi</h5>
+                        <p style="color: #bbb; line-height: 1.7; margin: 0 0 10px 0; font-size: 0.9em;">
+                            <strong style="color: #f39c12;">Problem:</strong> Eski sistemde 1. ve 2. Alım çok yakın olabiliyordu (örn: $248 ve $246) veya 2. Alım 1. Alım'dan yüksek çıkabiliyordu.
+                        </p>
+                        <p style="color: #bbb; line-height: 1.7; margin: 0; font-size: 0.9em;">
+                            <strong style="color: #00ff88;">Çözüm:</strong> Yeni algoritma, 2. seviyeyi seçerken 1. seviyeden minimum %3 uzaklıkta olanları filtreler. Bu şekilde:
+                        </p>
+                        <ul style="color: #aaa; line-height: 1.7; margin: 8px 0 0 20px; padding: 0; font-size: 0.88em;">
+                            <li>✅ <strong>1. Alım: $240</strong> → <strong>2. Alım: Maksimum $233</strong> (en az %3 daha düşük)</li>
+                            <li>✅ <strong>1. Satış: $260</strong> → <strong>2. Hedef: Minimum $268</strong> (en az %3 daha yüksek)</li>
+                            <li>✅ Anlamlı ekleme/kar realizasyon noktaları garantisi</li>
+                            <li>✅ Risk-ödül oranı optimize</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background: rgba(155, 89, 182, 0.08); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #9b59b6;">
+                        <h5 style="color: #9b59b6; margin: 0 0 10px 0; font-size: 1.05em; font-weight: 600;">🔍 Kümelenme Algoritması</h5>
+                        <p style="color: #bbb; line-height: 1.7; margin: 0; font-size: 0.9em;">
+                            Birbirine çok yakın seviyeler (volatiliteye göre %1.5-%2.5) tek bir güçlü seviye olarak birleştirilir:
+                        </p>
+                        <div style="background: rgba(255, 255, 255, 0.03); padding: 12px; border-radius: 6px; margin-top: 10px;">
+                            <div style="color: #ddd; font-size: 0.88em; line-height: 1.6;">
+                                <strong style="color: #9b59b6;">Örnek:</strong><br/>
+                                • MA50: $238.50 (güç: 3.0)<br/>
+                                • Swing Low: $239.20 (güç: 2.5)<br/>
+                                • Psikolojik: $240.00 (güç: 2.0)<br/>
+                                → <strong style="color: #00ff88;">Birleşik Destek: $239.30</strong> (toplam güç: 7.5)<br/>
+                                <span style="color: #888; font-size: 0.9em;">↳ Üç ayrı seviye yerine tek güçlü seviye</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(26, 188, 156, 0.08); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #1abc9c;">
+                        <h5 style="color: #1abc9c; margin: 0 0 10px 0; font-size: 1.05em; font-weight: 600;">⚡ Maksimum Mesafe Filtresi</h5>
+                        <p style="color: #bbb; line-height: 1.7; margin: 0; font-size: 0.9em;">
+                            Çok uzak seviyeler elenir (volatiliteye bağlı):
+                        </p>
+                        <ul style="color: #aaa; line-height: 1.7; margin: 8px 0 0 20px; padding: 0; font-size: 0.88em;">
+                            <li><strong style="color: #fff;">Düşük Volatilite:</strong> (AAPL, MSFT gibi) → Maksimum %15 mesafe</li>
+                            <li><strong style="color: #fff;">Yüksek Volatilite:</strong> (EOSE, HOOD gibi) → Maksimum %20 mesafe</li>
+                            <li><strong style="color: #888;">Neden?</strong> Çok uzak seviyeler kısa-orta vadede işe yaramaz, spekülatif kalır</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="background: rgba(231, 76, 60, 0.08); padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 3px solid #e74c3c;">
+                        <h5 style="color: #e74c3c; margin: 0 0 10px 0; font-size: 1.05em; font-weight: 600;">🛡️ Fallback Mekanizması</h5>
+                        <p style="color: #bbb; line-height: 1.7; margin: 0; font-size: 0.9em;">
+                            Eğer hiçbir uygun seviye bulunamazsa (çok az veri, aşırı volatilite, vb.), sistem otomatik olarak:
+                        </p>
+                        <ul style="color: #aaa; line-height: 1.7; margin: 8px 0 0 20px; padding: 0; font-size: 0.88em;">
+                            <li><strong style="color: #fff;">Destek için:</strong> Son 40-100 günün en düşük fiyatı (Swing Low)</li>
+                            <li><strong style="color: #fff;">Direnç için:</strong> Son 40-100 günün en yüksek fiyatı (Swing High)</li>
+                            <li><strong style="color: #e74c3c;">Uyarı:</strong> Bu durumda daha temkinli olun, hisse çok volatil olabilir</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Fiyat Pozisyonu Analizi -->
+                <div class="legend-section" style="margin-top: 25px;">
+                    <h4 style="color: #3498db; margin: 0 0 15px 0; font-size: 1.2em; font-weight: 700; border-bottom: 2px solid rgba(52, 152, 219, 0.3); padding-bottom: 8px;">💎 FİYAT POZİSYONU ANALİZİ</h4>
+                    
+                    <p style="color: #bbb; line-height: 1.7; margin: 0 0 15px 0; font-size: 0.9em;">
+                        Sistem, güncel fiyatın son 50 günlük en düşük ve en yüksek fiyat aralığında nerede olduğunu hesaplar. Bu, hissenin "ucuz" mu "pahalı" mı olduğunu anlamanıza yardımcı olur.
+                    </p>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; margin-bottom: 15px;">
+                        <div style="background: rgba(0, 255, 136, 0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(0, 255, 136, 0.3);">
+                            <div style="font-size: 1.4em; margin-bottom: 5px;">🟢</div>
+                            <h5 style="color: #00ff88; margin: 0 0 5px 0; font-size: 0.95em; font-weight: 600;">Dip Fiyat (0-20%)</h5>
+                            <p style="color: #aaa; line-height: 1.6; margin: 0; font-size: 0.82em;">Son 50 günün en düşük %20 aralığında. Mükemmel alım fırsatı!</p>
+                        </div>
+                        <div style="background: rgba(74, 158, 255, 0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(74, 158, 255, 0.3);">
+                            <div style="font-size: 1.4em; margin-bottom: 5px;">🔵</div>
+                            <h5 style="color: #4a9eff; margin: 0 0 5px 0; font-size: 0.95em; font-weight: 600;">İyi Fiyat (20-40%)</h5>
+                            <p style="color: #aaa; line-height: 1.6; margin: 0; font-size: 0.82em;">Ortalamanın altında. Ekleme yapmak için uygun.</p>
+                        </div>
+                        <div style="background: rgba(255, 170, 0, 0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(255, 170, 0, 0.3);">
+                            <div style="font-size: 1.4em; margin-bottom: 5px;">🟡</div>
+                            <h5 style="color: #ffaa00; margin: 0 0 5px 0; font-size: 0.95em; font-weight: 600;">Orta Fiyat (40-60%)</h5>
+                            <p style="color: #aaa; line-height: 1.6; margin: 0; font-size: 0.82em;">Orta seviyede. Ne ucuz ne pahalı.</p>
+                        </div>
+                        <div style="background: rgba(255, 107, 107, 0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(255, 107, 107, 0.3);">
+                            <div style="font-size: 1.4em; margin-bottom: 5px;">🟠</div>
+                            <h5 style="color: #ff6b6b; margin: 0 0 5px 0; font-size: 0.95em; font-weight: 600;">Yüksek Fiyat (60-80%)</h5>
+                            <p style="color: #aaa; line-height: 1.6; margin: 0; font-size: 0.82em;">Ortalamanın üstünde. Kısmi kar alabilirsiniz.</p>
+                        </div>
+                        <div style="background: rgba(255, 68, 68, 0.08); padding: 12px; border-radius: 8px; border: 1px solid rgba(255, 68, 68, 0.3);">
+                            <div style="font-size: 1.4em; margin-bottom: 5px;">🔴</div>
+                            <h5 style="color: #ff4444; margin: 0 0 5px 0; font-size: 0.95em; font-weight: 600;">Tepe Fiyat (80-100%)</h5>
+                            <p style="color: #aaa; line-height: 1.6; margin: 0; font-size: 0.82em;">Son 50 günün en yüksek %20 aralığında. Kar realizasyonu önerilir.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Risk Yönetimi -->
+                <div style="background: linear-gradient(135deg, rgba(231, 76, 60, 0.1), rgba(192, 57, 43, 0.05)); padding: 20px; border-radius: 12px; margin-top: 25px; border-left: 4px solid #e74c3c;">
+                    <h4 style="color: #e74c3c; margin: 0 0 12px 0; font-size: 1.3em; font-weight: 700;">⚠️ Risk Yönetimi Kuralları</h4>
+                    <ul style="color: #ddd; line-height: 2; margin: 0; padding-left: 20px; font-size: 0.9em;">
+                        <li><strong style="color: #fff;">Asla tek bir hisseye tüm sermayenizi yatırmayın.</strong> Portföyünüzü çeşitlendirin (en az 5-10 farklı hisse).</li>
+                        <li><strong style="color: #fff;">Her işlemde maksimum %2-3 risk alın.</strong> Örnek: 100.000₺ sermayeniz varsa, bir işlemde en fazla 2.000-3.000₺ kaybetmeyi göze alın.</li>
+                        <li><strong style="color: #fff;">Stop loss kullanımı zorunludur.</strong> Duygusal kararlar vermekten kaçının, sisteme güvenin.</li>
+                        <li><strong style="color: #fff;">Kademeli alım-satım yapın.</strong> Tek seferde hepsini almayın/satmayın. Pozisyonunuzu 2-3 parçaya bölün.</li>
+                        <li><strong style="color: #fff;">Trend sizin dostunuzdur.</strong> Trende karşı pozisyon almaktan kaçının. Yükseliş trendinde AL, düşüş trendinde SAT.</li>
+                        <li><strong style="color: #fff;">Sabırlı olun.</strong> Her gün işlem yapmak zorunda değilsiniz. İyi fırsat bekleyin.</li>
+                    </ul>
+                </div>
+                
+                <!-- Yasal Uyarı -->
+                <div style="margin-top: 20px; padding: 15px 18px; background: rgba(149, 165, 166, 0.08); border-radius: 8px; border-left: 3px solid #95a5a6;">
+                    <p style="margin: 0; color: #999; font-size: 0.8em; line-height: 1.6;">
+                        <strong style="color: #95a5a6;">⚖️ Yasal Uyarı:</strong> Bu platformda sunulan tüm stratejiler, indikatörler ve analizler yalnızca bilgilendirme amaçlı olup, hiçbir şekilde yatırım tavsiyesi, alım-satım önerisi veya finansal danışmanlık hizmeti niteliği taşımamaktadır. Geçmiş performans, gelecekteki sonuçları garanti etmez. Yatırım kararlarınızı vermeden önce kendi bağımsız araştırmanızı yapmalı, risk toleransınızı değerlendirmeli ve gerektiğinde lisanslı bir finansal danışmana başvurmalısınız. Tüm yatırım kararlarının sorumluluğu size aittir.
+                    </p>
+                </div>
+                
+            </div>
+        </div>
+    </div>
     
     <!-- Global Legend Modal -->
     <div id="global-legend-modal" class="legend-info-modal" style="display: none;">
         <div class="legend-content">
-            <div class="legend-header">
-                <h3 style="margin: 0; color: #fff; font-size: 1.2em;">📊 Renk ve Sembol Açıklamaları</h3>
-                <button id="global-legend-close" class="legend-close" style="background: none; border: none; color: #fff; font-size: 1.8em; cursor: pointer; padding: 0; width: 35px; height: 35px; transition: all 0.2s;">×</button>
+            <div class="legend-header" style="display: flex; justify-content: center; align-items: center; position: relative; padding: 15px 45px;">
+                <h3 style="margin: 0; color: #fff; font-size: 1.4em; letter-spacing: 2px; font-weight: 600;">INFO</h3>
+                <button id="global-legend-close" class="legend-close" style="position: absolute; right: 10px; background: none; border: none; color: #fff; font-size: 1.8em; cursor: pointer; padding: 0; width: 35px; height: 35px; transition: all 0.2s;">×</button>
             </div>
             <div class="legend-body">
                 <div class="legend-section">
-                    <h4 style="color: #3498db; margin: 12px 0 10px 0; font-size: 1em;">📈 Trend Göstergeleri</h4>
-                    <div class="legend-item"><span style="color: #00ff00; font-size: 1.6em;">🚀</span> <strong style="color: #00ff00;">Güçlü Yükseliş</strong> <span style="color: #888;">- En pozitif durum</span></div>
-                    <div class="legend-item"><span style="color: #51cf66; font-size: 1.6em;">📈</span> <strong style="color: #51cf66;">Yükseliş</strong> <span style="color: #888;">- Pozitif trend</span></div>
-                    <div class="legend-item"><span style="color: #f39c12; font-size: 1.6em;">➡️</span> <strong style="color: #f39c12;">Yatay</strong> <span style="color: #888;">- Nötr durum</span></div>
-                    <div class="legend-item"><span style="color: #ff6b6b; font-size: 1.6em;">📉</span> <strong style="color: #ff6b6b;">Düşüş</strong> <span style="color: #888;">- Negatif trend</span></div>
-                    <div class="legend-item"><span style="color: #ff4444; font-size: 1.6em;">💥</span> <strong style="color: #ff4444;">Güçlü Düşüş</strong> <span style="color: #888;">- En negatif durum</span></div>
+                    <h4 style="color: #3498db; margin: 8px 0 8px 0; font-size: 0.95em; font-weight: 600; letter-spacing: 0.3px; border-bottom: 1px solid rgba(52, 152, 219, 0.2); padding-bottom: 5px;">📈 TREND GÖSTERGELERİ</h4>
+                    <div class="legend-item" style="padding: 3px 0;"><span style="color: #00ff88; font-size: 1.3em;">🚀</span> <strong style="color: #00ff88; font-size: 0.9em;">Güçlü Yükseliş</strong> <span style="color: #888; font-size: 0.85em;">— Pozitif momentum.</span></div>
+                    <div class="legend-item" style="padding: 3px 0;"><span style="color: #2d7a3e; font-size: 1.3em;">📈</span> <strong style="color: #2d7a3e; font-size: 0.9em;">Yükseliş</strong> <span style="color: #888; font-size: 0.85em;">— Pozitif trend.</span></div>
+                    <div class="legend-item" style="padding: 3px 0;"><span style="color: #ffaa00; font-size: 1.3em;">➡️</span> <strong style="color: #ffaa00; font-size: 0.9em;">Yatay</strong> <span style="color: #888; font-size: 0.85em;">— Nötr durum.</span></div>
+                    <div class="legend-item" style="padding: 3px 0;"><span style="color: #ff6b6b; font-size: 1.3em;">📉</span> <strong style="color: #ff6b6b; font-size: 0.9em;">Düşüş</strong> <span style="color: #888; font-size: 0.85em;">— Negatif trend.</span></div>
+                    <div class="legend-item" style="padding: 3px 0;"><span style="color: #ff4444; font-size: 1.3em;">💥</span> <strong style="color: #ff4444; font-size: 0.9em;">Güçlü Düşüş</strong> <span style="color: #888; font-size: 0.85em;">— Negatif momentum.</span></div>
                 </div>
+                
                 <div class="legend-section">
-                    <h4 style="color: #3498db; margin: 18px 0 10px 0; font-size: 1em;">💰 Fiyat Pozisyonu (Ucuzluk Göstergesi)</h4>
-                    <div class="legend-item"><span style="color: #ff00ff; font-size: 1.6em;">🟢</span> <strong style="color: #ff00ff;">Dip Fiyat</strong> <span style="color: #888;">- EN UCUZ! Alım için mükemmel</span></div>
-                    <div class="legend-item"><span style="color: #00ff00; font-size: 1.6em;">💚</span> <strong style="color: #00ff00;">İyi Fiyat</strong> <span style="color: #888;">- İyi alım seviyesi</span></div>
-                    <div class="legend-item"><span style="color: #ffff00; font-size: 1.6em;">🟡</span> <strong style="color: #ffff00;">Orta Fiyat</strong> <span style="color: #888;">- Normal seviye</span></div>
-                    <div class="legend-item"><span style="color: #ff8800; font-size: 1.6em;">🟠</span> <strong style="color: #ff8800;">Yüksek Fiyat</strong> <span style="color: #888;">- Satış düşünülebilir</span></div>
-                    <div class="legend-item"><span style="color: #ff0000; font-size: 1.6em;">🔴</span> <strong style="color: #ff0000;">Tepe Fiyat</strong> <span style="color: #888;">- ÇOK PAHALI! Satış zamanı</span></div>
+                    <h4 style="color: #3498db; margin: 15px 0 8px 0; font-size: 0.95em; font-weight: 600; letter-spacing: 0.3px; border-bottom: 1px solid rgba(52, 152, 219, 0.2); padding-bottom: 5px;">💰 FİYAT POZİSYONU</h4>
+                    <div class="legend-item" style="padding: 3px 0;"><span style="color: #00ff88; font-size: 1.3em;">🟢</span> <strong style="color: #00ff88; font-size: 0.9em;">Dip Fiyat</strong> <span style="color: #888; font-size: 0.85em;">— 50 günlük en düşük %20.</span></div>
+                    <div class="legend-item" style="padding: 3px 0;"><span style="color: #4a9eff; font-size: 1.3em;">🔵</span> <strong style="color: #4a9eff; font-size: 0.9em;">İyi Fiyat</strong> <span style="color: #888; font-size: 0.85em;">— Ortalamanın altında.</span></div>
+                    <div class="legend-item" style="padding: 3px 0;"><span style="color: #ffaa00; font-size: 1.3em;">🟡</span> <strong style="color: #ffaa00; font-size: 0.9em;">Orta Fiyat</strong> <span style="color: #888; font-size: 0.85em;">— Ortalama seviyede.</span></div>
+                    <div class="legend-item" style="padding: 3px 0;"><span style="color: #ff6b6b; font-size: 1.3em;">🟠</span> <strong style="color: #ff6b6b; font-size: 0.9em;">Yüksek Fiyat</strong> <span style="color: #888; font-size: 0.85em;">— Ortalamanın üstünde.</span></div>
+                    <div class="legend-item" style="padding: 3px 0;"><span style="color: #ff4444; font-size: 1.3em;">🔴</span> <strong style="color: #ff4444; font-size: 0.9em;">Tepe Fiyat</strong> <span style="color: #888; font-size: 0.85em;">— 50 günlük en yüksek %20.</span></div>
                 </div>
-                <div style="margin-top: 18px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.85em; color: #888; text-align: center; line-height: 1.5;">
-                    <strong style="color: #3498db;">ℹ️ Bilgi:</strong> Tüm analizler 250 günlük veri üzerinden yapılmaktadır.<br>
-                    Trend ve fiyat pozisyonu göstergeleri her kartın alt kısmında yer alır.
+                
+                <div style="margin-top: 12px; padding: 10px 12px; background: rgba(149, 165, 166, 0.08); border-radius: 4px; border-left: 3px solid #95a5a6;">
+                    <p style="margin: 0; color: #999; font-size: 0.8em; line-height: 1.5;">
+                        <strong style="color: #95a5a6;">Yasal Uyarı:</strong> Bu platformda sunulan tüm göstergeler, analizler ve veriler yalnızca bilgilendirme amaçlı olup, hiçbir şekilde yatırım tavsiyesi, alım-satım önerisi veya finansal danışmanlık hizmeti niteliği taşımamaktadır. Yatırım kararlarınızı vermeden önce kendi bağımsız araştırmanızı yapmanız, risk toleransınızı değerlendirmeniz ve gerektiğinde lisanslı bir finansal danışmana başvurmanız önemle tavsiye edilir. Piyasa verileri geçmiş performansa dayanmakta olup, gelecekteki sonuçları garanti etmemektedir.
+                    </p>
                 </div>
             </div>
         </div>
@@ -60,7 +470,10 @@
                 <div class="modern-controls">
                     <div class="control-row">
                         <div class="input-section">
-                            <input type="text" id="stock-input" class="modern-input" placeholder="Hisse Kodu (örn: THYAO, AAPL)">
+                            <div class="search-wrapper">
+                                <input type="text" id="stock-input" class="modern-input" placeholder="Hisse Kodu veya İsmi (örn: AAPL, Tesla)" autocomplete="off">
+                                <div id="search-results" class="search-results"></div>
+                            </div>
                             <button id="add-stock-btn" class="modern-btn primary-btn">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                                     <line x1="12" y1="5" x2="12" y2="19"></line>
@@ -70,12 +483,7 @@
                             </button>
                         </div>
                         <div class="action-section">
-                            <button id="refresh-btn" class="modern-btn refresh-btn">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
-                                </svg>
-                                <span>Yenile</span>
-                            </button>
+                            <!-- Yenile butonu kaldırıldı - F5 ile yenileme yeterli -->
                             <div class="sort-buttons">
                                 <button id="sort-gainers-btn" class="modern-btn sort-btn gainers-btn" title="En Çok Yükselenler">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -96,7 +504,7 @@
                                     <span>Normal</span>
                                 </button>
                             </div>
-                            <button id="reset-order-btn" class="modern-btn secondary-btn">
+                            <button id="reset-order-btn" class="modern-btn secondary-btn" title="Hisseleri alfabetik sıraya göre düzenle (favoriler önce)">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M3 12h18M3 6h18M3 18h18"/>
                                 </svg>
@@ -205,5 +613,51 @@
         #toggle-debug-btn {background:#3b3f52; color:#eee; border:none; padding:6px 10px; border-radius:4px; cursor:pointer;}
         #toggle-debug-btn:hover {background:#4a5066;}
     </style>
+    
+    <!-- Firebase SDK from CDN -->
+    <script type="module">
+        // Firebase imports
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        
+        // Firebase config
+        const firebaseConfig = {
+          apiKey: "AIzaSyAp8_Jcy0vH2FzlczwUajQB86cRWP_LZqM",
+          authDomain: "stockscope-db911.firebaseapp.com",
+          projectId: "stockscope-db911",
+          storageBucket: "stockscope-db911.firebasestorage.app",
+          messagingSenderId: "215364462789",
+          appId: "1:215364462789:web:a5aab7a0189512534868ac",
+          measurementId: "G-1C0NCY4M14"
+        };
+        
+        // Initialize Firebase
+        let firebaseApp, db, auth;
+        let firebaseEnabled = false;
+        
+        try {
+            firebaseApp = initializeApp(firebaseConfig);
+            db = getFirestore(firebaseApp);
+            auth = getAuth(firebaseApp);
+            console.log('✓ Firebase initialized');
+            
+            // Make available globally
+            window.firebaseApp = firebaseApp;
+            window.firebaseDb = db;
+            window.firebaseAuth = auth;
+            window.firebaseModules = {
+                doc, setDoc, getDoc, onSnapshot,
+                signInAnonymously, onAuthStateChanged,
+                signInWithPopup, GoogleAuthProvider, signOut
+            };
+            
+            firebaseEnabled = true;
+            window.firebaseEnabled = true;
+        } catch (error) {
+            console.error('❌ Firebase initialization error:', error);
+            window.firebaseEnabled = false;
+        }
+    </script>
 </body>
 </html>

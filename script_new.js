@@ -1,7 +1,220 @@
-﻿document.addEventListener('DOMContentLoaded', () => {
+﻿document.addEventListener('DOMContentLoaded', async () => {
     const stockInput = document.getElementById('stock-input');
     const addStockBtn = document.getElementById('add-stock-btn');
     const stockContainer = document.getElementById('stock-container');
+    const searchResults = document.getElementById('search-results');
+    
+    // Check if Firebase is available
+    let firebaseEnabled = window.firebaseEnabled || false;
+    let currentUserId = null;
+    let currentUser = null;
+    
+    // UI Elements
+    const loginModal = document.getElementById('login-modal');
+    const googleLoginBtn = document.getElementById('google-login-btn');
+    const skipLoginBtn = document.getElementById('skip-login-btn');
+    const offlineModeBtn = document.getElementById('offline-mode-btn');
+    const signinBtn = document.getElementById('signin-btn');
+    const userProfile = document.getElementById('user-profile');
+    const userAvatar = document.getElementById('user-avatar');
+    const userMenu = document.getElementById('user-menu');
+    const logoutBtn = document.getElementById('logout-btn');
+    
+    // Check if user chose offline mode before
+    const isOfflineMode = localStorage.getItem('offlineMode') === 'true';
+    
+    // Initialize Firebase Authentication
+    if (firebaseEnabled && !isOfflineMode) {
+        const { signInWithPopup, GoogleAuthProvider, signInAnonymously, onAuthStateChanged, signOut } = window.firebaseModules;
+        const auth = window.firebaseAuth;
+        const provider = new GoogleAuthProvider();
+        
+        // Modal başlangıçta gizli, sadece gerekirse gösterilecek
+        loginModal.style.display = 'none';
+        
+        // Google Login
+        googleLoginBtn.addEventListener('click', async () => {
+            try {
+                const result = await signInWithPopup(auth, provider);
+                currentUser = result.user;
+                currentUserId = result.user.uid;
+                loginModal.style.display = 'none';
+                showUserProfile(result.user);
+                console.log('🔥 Google login successful:', result.user.email);
+                showSyncStatus(true);
+                setupRealtimeSync();
+                await loadUserStocks();
+            } catch (error) {
+                console.error('Google login error:', error);
+                alert('Giriş yapılırken bir hata oluştu. Lütfen tekrar deneyin.');
+            }
+        });
+        
+        // Skip Login (Anonymous) - DEPRECATED, kept for backward compatibility
+        if (skipLoginBtn) {
+            skipLoginBtn.addEventListener('click', async () => {
+                try {
+                    await signInAnonymously(auth);
+                    loginModal.style.display = 'none';
+                    showSyncStatus(false);
+                } catch (error) {
+                    console.error('Anonymous login error:', error);
+                    loginModal.style.display = 'none';
+                }
+            });
+        }
+        
+        // Offline Mode (No Firebase, localStorage only)
+        offlineModeBtn.addEventListener('click', async () => {
+            console.log('📴 Offline mode activated');
+            localStorage.setItem('offlineMode', 'true');
+            loginModal.style.display = 'none';
+            firebaseEnabled = false;
+            showSyncStatus(false);
+            signinBtn.style.display = 'flex'; // Show signin button
+            
+            // Clear stock container first
+            stockContainer.innerHTML = '';
+            stocks = [];
+            
+            // Reload initial stocks (will read from localStorage)
+            await loadInitialStocks();
+            
+            console.log('✅ Offline mode activated, stocks loaded:', stocks.length);
+        });
+        
+        // Logout
+        logoutBtn.addEventListener('click', async () => {
+            try {
+                await signOut(auth);
+                userProfile.style.display = 'none';
+                userMenu.style.display = 'none';
+                currentUserId = null;
+                currentUser = null;
+                showSyncStatus(false);
+                signinBtn.style.display = 'flex'; // Show signin button after logout
+                console.log('🔥 User logged out');
+            } catch (error) {
+                console.error('Logout error:', error);
+            }
+        });
+        
+        // User avatar click - toggle menu
+        userAvatar.addEventListener('click', () => {
+            userMenu.style.display = userMenu.style.display === 'none' ? 'block' : 'none';
+        });
+        
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!userProfile.contains(e.target)) {
+                userMenu.style.display = 'none';
+            }
+        });
+        
+        // Auth State Observer
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUserId = user.uid;
+                currentUser = user;
+                loginModal.style.display = 'none'; // Kullanıcı varsa modal'ı kapat
+                signinBtn.style.display = 'none'; // Hide signin button
+                
+                if (user.isAnonymous) {
+                    // Anonymous user - signin button göster
+                    console.log('🔥 Anonymous user authenticated:', currentUserId);
+                    showSyncStatus(false);
+                    userProfile.style.display = 'none';
+                    signinBtn.style.display = 'flex'; // Show signin button for upgrade
+                } else {
+                    // Google user - modal'ı gösterme
+                    console.log('🔥 Google user authenticated:', user.email);
+                    showUserProfile(user);
+                    showSyncStatus(true);
+                    loginModal.style.display = 'none';
+                }
+                
+                setupRealtimeSync();
+                loadUserStocks();
+            } else {
+                // Hiç kullanıcı yok - signin button göster (modal değil!)
+                signinBtn.style.display = 'flex';
+                loginModal.style.display = 'none'; // Modal otomatik açılmasın
+                showSyncStatus(false);
+                userProfile.style.display = 'none';
+            }
+        });
+    } else {
+        // Firebase disabled or offline mode
+        showSyncStatus(false);
+        if (loginModal) loginModal.style.display = 'none';
+        
+        if (isOfflineMode) {
+            // User previously chose offline mode
+            console.log('📴 Offline mode (from localStorage)');
+            signinBtn.style.display = 'flex';
+            // Don't auto-load stocks here, let loadInitialStocks() handle it at the end
+        }
+    }
+    
+    // Sign In button click - show login modal
+    if (signinBtn) {
+        signinBtn.addEventListener('click', () => {
+            console.log('🔐 Signin button clicked');
+            localStorage.removeItem('offlineMode');
+            signinBtn.style.display = 'none';
+            loginModal.style.display = 'flex';
+        });
+    }
+    
+    // Close login modal
+    const loginCloseBtn = document.getElementById('login-close-btn');
+    if (loginCloseBtn) {
+        loginCloseBtn.addEventListener('click', () => {
+            console.log('❌ Login modal closed');
+            loginModal.style.display = 'none';
+            
+            // Always show signin button when modal closes
+            signinBtn.style.display = 'flex';
+        });
+    }
+    
+    // Close modal on backdrop click
+    if (loginModal) {
+        loginModal.addEventListener('click', (e) => {
+            if (e.target === loginModal) {
+                loginCloseBtn.click();
+            }
+        });
+    }
+    
+    // Show user profile in header
+    function showUserProfile(user) {
+        console.log('📸 showUserProfile called with:', user);
+        if (userProfile && userAvatar) {
+            userProfile.style.display = 'flex';
+            userAvatar.src = user.photoURL || 'https://via.placeholder.com/40';
+            userAvatar.style.display = 'block';
+            
+            const menuAvatar = document.getElementById('user-menu-avatar');
+            const menuName = document.getElementById('user-menu-name');
+            const menuEmail = document.getElementById('user-menu-email');
+            
+            if (menuAvatar) menuAvatar.src = user.photoURL || 'https://via.placeholder.com/40';
+            if (menuName) menuName.textContent = user.displayName || 'User';
+            if (menuEmail) menuEmail.textContent = user.email || '';
+            
+            console.log('✅ User profile displayed:', {
+                name: user.displayName,
+                email: user.email,
+                photo: user.photoURL
+            });
+        } else {
+            console.error('❌ userProfile or userAvatar not found!', {
+                userProfile: !!userProfile,
+                userAvatar: !!userAvatar
+            });
+        }
+    }
     
     const modal = document.getElementById('chart-modal');
     const modalStockSymbol = document.getElementById('modal-stock-symbol');
@@ -10,6 +223,7 @@
     let currentStock = null;
     let currentTimeframe = '1d';
     let tradingViewChart = null;
+    let searchTimeout = null;
 
     let stocks = [];
     let sortableInstance = null;
@@ -27,34 +241,195 @@
     // Magnificent 7 companies
     const magnificent7 = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'NVDA', 'TSLA'];
 
-    function loadInitialStocks() {
+    // ============================================
+    // STORAGE YÖNETİMİ (Firebase + LocalStorage)
+    // ============================================
+    
+    async function saveUserStocks() {
+        const stockSymbols = stocks.map(s => s.symbol);
+        
+        // Always save to localStorage (fallback)
+        try {
+            localStorage.setItem('userStocks', JSON.stringify(stockSymbols));
+            console.log('✓ Stocks saved to localStorage:', stockSymbols);
+        } catch (e) {
+            console.error('localStorage save error:', e);
+        }
+        
+        // Also save to Firebase if enabled
+        if (firebaseEnabled && currentUserId) {
+            try {
+                const { doc, setDoc } = window.firebaseModules;
+                const db = window.firebaseDb;
+                
+                await setDoc(doc(db, 'users', currentUserId), {
+                    stocks: stockSymbols,
+                    updatedAt: new Date().toISOString()
+                });
+                
+                console.log('✓ Stocks saved to Firebase:', stockSymbols);
+                updateSyncStatus('synced');
+            } catch (e) {
+                console.error('Firebase save error:', e);
+                updateSyncStatus('error');
+            }
+        }
+    }
+    
+    async function loadUserStocks() {
+        // Try Firebase first (if enabled)
+        if (firebaseEnabled && currentUserId) {
+            try {
+                const { doc, getDoc } = window.firebaseModules;
+                const db = window.firebaseDb;
+                
+                const docSnap = await getDoc(doc(db, 'users', currentUserId));
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    const firebaseStocks = data.stocks || [];
+                    console.log('✓ Stocks loaded from Firebase:', firebaseStocks);
+                    
+                    // Also save to localStorage for offline access
+                    localStorage.setItem('userStocks', JSON.stringify(firebaseStocks));
+                    return firebaseStocks;
+                }
+            } catch (e) {
+                console.error('Firebase load error:', e);
+            }
+        }
+        
+        // Fallback to localStorage
+        try {
+            const saved = localStorage.getItem('userStocks');
+            if (saved) {
+                const stockList = JSON.parse(saved);
+                console.log('✓ Stocks loaded from localStorage:', stockList);
+                return stockList;
+            }
+        } catch (e) {
+            console.error('localStorage load error:', e);
+        }
+        
+        return null;
+    }
+
+    async function loadInitialStocks() {
+        console.log('📦 loadInitialStocks called');
         stockContainer.innerHTML = '';
         stocks = [];
         loadFavorites();
         
-        // Load saved order
-        const savedOrder = loadStockOrder();
-        let stocksToLoad = initialStocks;
+        // Önce kullanıcının kaydettiği hisseleri yükle (Firebase veya localStorage)
+        const savedStocks = await loadUserStocks();
+        let stocksToLoad = savedStocks && savedStocks.length > 0 ? savedStocks : initialStocks;
         
-        if (savedOrder && savedOrder.length > 0) {
-            // Use saved order, append missing ones to the end - ONLY FOR MAG7
-            const mag7SavedOrder = savedOrder.filter(symbol => magnificent7.includes(symbol));
-            const missingStocks = initialStocks.filter(symbol => !mag7SavedOrder.includes(symbol));
-            stocksToLoad = [...mag7SavedOrder, ...missingStocks];
-            console.log('Saved order loaded (Mag7 only):', mag7SavedOrder);
-        }
+        console.log('📊 Stocks to load:', stocksToLoad);
+        console.log('🔥 Firebase enabled:', firebaseEnabled);
         
         // Load all stocks sequentially
-        async function loadAllStocks() {
-            for (const symbol of stocksToLoad) {
-                await addStock(symbol);
+        for (const symbol of stocksToLoad) {
+            console.log('  ➕ Adding stock:', symbol);
+            await addStock(symbol);
+        }
+        console.log('✅ All stocks loaded, total:', stocks.length);
+        initializeSortable();
+        
+        // Setup real-time sync listener if Firebase enabled
+        if (firebaseEnabled) {
+            setupRealtimeSync();
+        }
+    }
+    
+    // Real-time sync listener
+    let isFirstSnapshot = true; // İlk snapshot'ı atla
+    
+    function setupRealtimeSync() {
+        if (!firebaseEnabled || !currentUserId) return;
+        
+        const { doc, onSnapshot } = window.firebaseModules;
+        const db = window.firebaseDb;
+        
+        onSnapshot(doc(db, 'users', currentUserId), (docSnap) => {
+            if (!docSnap.exists()) return;
+            
+            // İlk snapshot'ta bildirim gösterme (sayfa yüklenirken)
+            if (isFirstSnapshot) {
+                isFirstSnapshot = false;
+                console.log('✓ Real-time sync listener active');
+                return;
             }
-            console.log('All stocks loaded, saving order');
-            saveStockOrder();
-            initializeSortable();
+            
+            console.log('🔄 Real-time sync: Data changed on another device');
+            
+            const data = docSnap.data();
+            const remoteStocks = data.stocks || [];
+            const localStocks = stocks.map(s => s.symbol);
+            
+            // Check if there's a difference
+            const isDifferent = JSON.stringify(remoteStocks.sort()) !== JSON.stringify(localStocks.sort());
+            
+            if (isDifferent) {
+                console.log('Remote stocks:', remoteStocks);
+                console.log('Local stocks:', localStocks);
+                
+                // Show notification
+                showSyncNotification('Başka cihazdan değişiklik yapıldı. Yenilemek ister misiniz?');
+            }
+        });
+    }
+    
+    function showSyncNotification(message) {
+        const notification = document.createElement('div');
+        notification.className = 'sync-notification';
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span>🔄 ${message}</span>
+                <button onclick="location.reload()" style="padding: 6px 12px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer;">Yenile</button>
+                <button onclick="this.parentElement.parentElement.remove()" style="padding: 6px 12px; background: #95a5a6; color: white; border: none; border-radius: 6px; cursor: pointer;">İptal</button>
+            </div>
+        `;
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 10 seconds
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.remove();
+            }
+        }, 10000);
+    }
+    
+    function showSyncStatus(enabled) {
+        const header = document.querySelector('.modern-header .header-content');
+        
+        // Mevcut indicator varsa sil
+        let indicator = document.getElementById('sync-indicator');
+        if (indicator) {
+            indicator.remove();
         }
         
-        loadAllStocks();
+        // Yeni indicator oluştur
+        indicator = document.createElement('div');
+        indicator.id = 'sync-indicator';
+        indicator.className = 'sync-indicator';
+        indicator.innerHTML = enabled 
+            ? '<span style="color: #2ecc71;">🔥 Multi-device sync aktif.</span>'
+            : '<span style="color: #f39c12;">⚠️ Offline Mode</span>';
+        header.appendChild(indicator);
+    }
+    
+    function updateSyncStatus(status) {
+        const indicator = document.getElementById('sync-indicator');
+        if (!indicator) return;
+        
+        if (status === 'syncing') {
+            indicator.innerHTML = '<span style="color: #3498db;">🔄 Senkronize ediliyor...</span>';
+        } else if (status === 'synced') {
+            indicator.innerHTML = '<span style="color: #2ecc71;">✓ Senkronize edildi</span>';
+            setTimeout(() => {
+                indicator.innerHTML = '<span style="color: #2ecc71;">🔥 Multi-device sync aktif</span>';
+            }, 2000);
+        }
     }
 
     function initializeSortable() {
@@ -87,17 +462,13 @@
         });
         
         stocks = newStocks;
-        saveStockOrder(); // Save order
+        saveUserStocks(); // Sıralama değişince kaydet
         console.log('Stock order updated:', stocks.map(s => s.symbol));
     }
 
     function saveStockOrder() {
-        const stockOrder = stocks.map(stock => stock.symbol);
-        try {
-            localStorage.setItem('stockOrder', JSON.stringify(stockOrder));
-        } catch (e) {
-            console.error('Sıralama kaydedilemedi:', e);
-        }
+        // Bu fonksiyon artık kullanılmıyor, saveUserStocks() kullan
+        saveUserStocks();
     }
 
     function loadStockOrder() {
@@ -213,65 +584,83 @@
         console.log(`${symbol} moved to position after Mag 7`);
     }
 
+    // Add stock button click handler
     addStockBtn.addEventListener('click', () => {
         const stockSymbol = stockInput.value.toUpperCase().trim();
         if (stockSymbol) {
+            // Check if stock already exists
+            if (stocks.some(s => s.symbol === stockSymbol)) {
+                alert(`${stockSymbol} zaten listede mevcut!`);
+                stockInput.value = '';
+                return;
+            }
             addStock(stockSymbol);
             stockInput.value = '';
+            stockInput.focus(); // Keep focus on input for quick entry
+        }
+    });
+
+    // Add stock with Enter key
+    stockInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const stockSymbol = stockInput.value.toUpperCase().trim();
+            if (stockSymbol) {
+                // Check if stock already exists
+                if (stocks.some(s => s.symbol === stockSymbol)) {
+                    alert(`${stockSymbol} zaten listede mevcut!`);
+                    stockInput.value = '';
+                    return;
+                }
+                addStock(stockSymbol);
+                stockInput.value = '';
+            }
         }
     });
 
     // Reset order button
     const resetOrderBtn = document.getElementById('reset-order-btn');
     resetOrderBtn.addEventListener('click', () => {
-        if (confirm('Are you sure you want to reset the order? This action cannot be undone.')) {
-            resetToMagnificent7Order();
+        if (confirm('Hisselerin sıralamasını alfabetik düzene göre sıfırlamak istediğinize emin misiniz?')) {
+            resetToAlphabeticalOrder();
         }
     });
 
-    function resetToMagnificent7Order() {
-        console.log('Resetting Magnificent 7 order...');
+    function resetToAlphabeticalOrder() {
+        console.log('Resetting to alphabetical order...');
         
-        // Clear localStorage
-        localStorage.removeItem('stockOrder');
+        // Mevcut hisseleri alfabetik olarak sırala
+        // Favorileri en başa, sonra diğerleri alfabetik
+        const currentSymbols = stocks.map(s => s.symbol);
         
-        // Reload page
-        stockContainer.innerHTML = '';
-        stocks = [];
+        const favoriteStocks = currentSymbols.filter(symbol => favorites.includes(symbol))
+                                             .sort((a, b) => a.localeCompare(b));
+        const nonFavoriteStocks = currentSymbols.filter(symbol => !favorites.includes(symbol))
+                                                .sort((a, b) => a.localeCompare(b));
         
-        // Favorite stocks first, then Magnificent 7 (alphabetically), then others
-        const favoriteStocks = initialStocks.filter(symbol => favorites.includes(symbol));
-        const magnificent7Stocks = magnificent7.filter(symbol => !favorites.includes(symbol))
-                                              .sort((a, b) => a.localeCompare(b)); // Sort Mag 7 alphabetically
-        const otherStocks = initialStocks.filter(symbol => 
-            !magnificent7.includes(symbol) && !favorites.includes(symbol)
-        );
+        const newOrder = [...favoriteStocks, ...nonFavoriteStocks];
         
-        const newOrder = [...favoriteStocks, ...magnificent7Stocks, ...otherStocks];
+        console.log('Current stocks:', currentSymbols);
+        console.log('Favorite stocks (alphabetical):', favoriteStocks);
+        console.log('Non-favorite stocks (alphabetical):', nonFavoriteStocks);
+        console.log('New alphabetical order:', newOrder);
         
-        console.log('Favorite stocks:', favoriteStocks);
-        console.log('Magnificent 7 (non-favorites):', magnificent7Stocks);
-        console.log('Other stocks:', otherStocks);
-        console.log('New order:', newOrder);
+        // Reorder DOM
+        reorderDOM(newOrder);
         
-        // Load with new order
-        async function loadWithNewOrder() {
-            for (const symbol of newOrder) {
-                await addStock(symbol);
+        // Update stocks array order
+        const newStocksArray = [];
+        newOrder.forEach(symbol => {
+            const stock = stocks.find(s => s.symbol === symbol);
+            if (stock) {
+                newStocksArray.push(stock);
             }
-            console.log('Magnificent 7 order loaded');
-            
-            // Reorder DOM
-            reorderDOM(newOrder);
-            
-            // Update stocks array
-            updateStocksOrder();
-            
-            saveStockOrder();
-            initializeSortable();
-        }
+        });
+        stocks = newStocksArray;
         
-        loadWithNewOrder();
+        // Save new order
+        saveUserStocks();
+        
+        console.log('Alphabetical order applied');
     }
 
     function reorderDOM(newOrder) {
@@ -459,6 +848,7 @@
                 if (!stocks.some(s => s.symbol === symbol)) {
                     stocks.push(stock);
                     appendStockCard(stock);
+                    saveUserStocks(); // Hisseleri kaydet
                     initializeSortable(); // Reinitialize sortable when new stock is added
                 }
                 stockData[symbol] = stock; // Save for debug panel
@@ -474,6 +864,20 @@
             if (stocks.length === 0) {
                 alert(`An error occurred while fetching data: ${error.message}. Please check your internet connection and server logs in terminal.`);
             }
+        }
+    }
+
+    function removeStock(symbol) {
+        const index = stocks.findIndex(s => s.symbol === symbol);
+        if (index > -1) {
+            stocks.splice(index, 1);
+            const card = stockContainer.querySelector(`[data-symbol="${symbol}"]`);
+            if (card) {
+                card.remove();
+            }
+            delete stockData[symbol];
+            saveUserStocks(); // Kaydet
+            console.log(`✓ ${symbol} removed and saved`);
         }
     }
 
@@ -530,9 +934,9 @@
             ta = stock.technicalAnalysis;
             
             if (ta.signals.overall === 'STRONG_BULLISH') {
-                trendEmoji = '🚀'; trendColor = '#00ff00'; trendShort = 'Güçlü Yükseliş';
+                trendEmoji = '🚀'; trendColor = '#00ff88'; trendShort = 'Güçlü Yükseliş';
             } else if (ta.signals.overall === 'BULLISH') {
-                trendEmoji = '📈'; trendColor = '#51cf66'; trendShort = 'Yükseliş';
+                trendEmoji = '📈'; trendColor = '#2d7a3e'; trendShort = 'Yükseliş';
             } else if (ta.signals.overall === 'STRONG_BEARISH') {
                 trendEmoji = '💥'; trendColor = '#ff4444'; trendShort = 'Güçlü Düşüş';
             } else if (ta.signals.overall === 'BEARISH') {
@@ -550,7 +954,7 @@
                     positionTooltip = 'Price very close to support levels. Excellent level for adding positions.';
                 } else if (pos < 40) {
                     positionText = 'İyi Fiyat';
-                    positionBadge = '🟢';
+                    positionBadge = '🔵';
                     positionTooltip = 'Price close to support levels. Good level for adding positions.';
                 } else if (pos < 60) {
                     positionText = 'Orta Fiyat';
@@ -572,14 +976,14 @@
             let trendEmojiColor = 'inherit';
             let trendGlow = '';
             
-            if (trendColor === '#00ff00') { // Strong Bullish (💹)
-                trendBorderColor = '#00ff00';
-                trendEmojiColor = '#00ff00';
-                trendGlow = '0 0 12px rgba(0, 255, 0, 0.8), 0 0 24px rgba(0, 255, 0, 0.4)';
-            } else if (trendColor === '#51cf66') { // Bullish (📈)
+            if (trendColor === '#00ff88') { // Strong Bullish (💹)
+                trendBorderColor = '#00ff88';
+                trendEmojiColor = '#00ff88';
+                trendGlow = '0 0 12px rgba(0, 255, 136, 0.8), 0 0 24px rgba(0, 255, 136, 0.4)';
+            } else if (trendColor === '#2d7a3e') { // Bullish (📈)
                 trendBorderColor = '#2ecc71';
-                trendEmojiColor = '#51cf66';
-                trendGlow = '0 0 10px rgba(81, 207, 102, 0.6)';
+                trendEmojiColor = '#2d7a3e';
+                trendGlow = '0 0 10px rgba(45, 122, 62, 0.6)';
             } else if (trendColor === '#ff4444') { // Strong Bearish (💥)
                 trendBorderColor = '#ff4444';
                 trendEmojiColor = '#ff4444';
@@ -599,18 +1003,15 @@
             let positionEmojiColor = 'inherit';
             let positionGlow = '';
             
-            if (positionBadge === '🟢') { // Bottom/Good Price - Strong Bullish/Bullish (Green)
-                // Dip Fiyat için parlak yeşil, İyi Fiyat için normal yeşil
-                if (positionText === 'Dip Fiyat') {
-                    positionBorderColor = '#00ff00';
-                    positionEmojiColor = '#00ff00';
-                    positionGlow = '0 0 18px rgba(0, 255, 0, 1), 0 0 36px rgba(0, 255, 0, 0.6), 0 0 54px rgba(0, 255, 0, 0.3)';
-                } else { // İyi Fiyat
-                    positionBorderColor = '#51cf66';
-                    positionEmojiColor = '#51cf66';
-                    positionGlow = '0 0 14px rgba(81, 207, 102, 0.9), 0 0 28px rgba(81, 207, 102, 0.4)';
-                }
-            } else if (positionBadge === '🟡') { // Mid Price - Sideways (Yellow)
+            if (positionBadge === '🟢') { // Dip Fiyat - Bottom Price (Bright Green)
+                positionBorderColor = '#00ff88';
+                positionEmojiColor = '#00ff88';
+                positionGlow = '0 0 18px rgba(0, 255, 136, 1), 0 0 36px rgba(0, 255, 136, 0.6), 0 0 54px rgba(0, 255, 136, 0.3)';
+            } else if (positionBadge === '🔵') { // İyi Fiyat - Good Price (Blue)
+                positionBorderColor = '#4a9eff';
+                positionEmojiColor = '#4a9eff';
+                positionGlow = '0 0 14px rgba(74, 158, 255, 0.9), 0 0 28px rgba(74, 158, 255, 0.4)';
+            } else if (positionBadge === '🟡') { // Orta Fiyat - Mid Price (Yellow)
                 positionBorderColor = '#ffaa00';
                 positionEmojiColor = '#ffaa00';
                 positionGlow = '0 0 12px rgba(255, 170, 0, 0.8)';
@@ -638,8 +1039,8 @@
                     </div>
                     
                     <div style="display: flex; gap: 8px; font-size: 0.8em;">
-                        <div style="flex: 1; background: rgba(81, 207, 102, 0.1); padding: 6px; border-radius: 6px; text-align: center; border: 1px solid rgba(81, 207, 102, 0.2);">
-                            <div style="color: #51cf66; font-weight: 600;">${currency}${ta.recommendations.buyPrice.toFixed(2)}</div>
+                        <div style="flex: 1; background: rgba(45, 122, 62, 0.1); padding: 6px; border-radius: 6px; text-align: center; border: 1px solid rgba(45, 122, 62, 0.2);">
+                            <div style="color: #2d7a3e; font-weight: 600;">${currency}${ta.recommendations.buyPrice.toFixed(2)}</div>
                             <div style="color: #888; font-size: 0.85em; margin-top: 2px;">Ekleme</div>
                         </div>
                         <div style="flex: 1; background: rgba(255, 107, 107, 0.1); padding: 6px; border-radius: 6px; text-align: center; border: 1px solid rgba(255, 107, 107, 0.2);">
@@ -653,9 +1054,14 @@
         
         stockCard.innerHTML = `
             <!-- Stacked (Card) Layout -->
-            <div class="card-stacked" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 12px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                    <div class="favorite-star ${isFavorite ? 'active' : 'inactive'}" data-symbol="${stock.symbol}" style="font-size: 22px;">★</div>
+            <div class="card-stacked" style="display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px 12px; position: relative;">
+                <!-- Remove button at top center -->
+                <button class="remove-stock-btn" data-symbol="${stock.symbol}" title="Hisseyi Sil" style="position: absolute; top: 8px; left: 50%; transform: translateX(-50%); background: rgba(255, 68, 68, 0.1); border: 1px solid rgba(255, 68, 68, 0.3); color: #ff4444; padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 8px; transition: all 0.2s; z-index: 10;">✕</button>
+                
+                <!-- Star at top right -->
+                <div class="favorite-star ${isFavorite ? 'active' : 'inactive'}" data-symbol="${stock.symbol}" style="position: absolute; top: 0px; right: 8px; font-size: 22px; z-index: 10;">★</div>
+                
+                <div style="display: flex; justify-content: flex-start; align-items: center; width: 100%; margin-top: 20px;">
                     ${marketStatusLabel}
                 </div>
                 <div style="text-align: center; margin-top: 2px;">
@@ -724,6 +1130,18 @@
         }
         
         stockContainer.appendChild(stockCard);
+        
+        // Add remove button event listener
+        const removeBtn = stockCard.querySelector('.remove-stock-btn');
+        if (removeBtn) {
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const symbol = removeBtn.dataset.symbol;
+                if (confirm(`${symbol} hissesini silmek istediğinize emin misiniz?`)) {
+                    removeStock(symbol);
+                }
+            });
+        }
     }
 
     function openChartModal(symbol) {
@@ -759,79 +1177,257 @@
         const rec = ta.recommendations;
         
         // Trend color and emoji (LONG TERM)
-        let trendClass, trendEmoji, trendText;
+        let trendClass, trendEmoji, trendText, trendColor;
         if (sig.overall === 'STRONG_BULLISH') {
             trendClass = 'trend-bullish';
             trendEmoji = '🚀';
             trendText = 'Güçlü Yükseliş';
+            trendColor = '#00ff88';
         } else if (sig.overall === 'BULLISH') {
             trendClass = 'trend-bullish';
             trendEmoji = '📈';
             trendText = 'Yükseliş';
+            trendColor = '#2ecc71';
         } else if (sig.overall === 'STRONG_BEARISH') {
             trendClass = 'trend-bearish';
             trendEmoji = '💥';
             trendText = 'Güçlü Düşüş';
+            trendColor = '#ff4444';
         } else if (sig.overall === 'BEARISH') {
             trendClass = 'trend-bearish';
             trendEmoji = '📉';
             trendText = 'Düşüş';
+            trendColor = '#e74c3c';
         } else {
             trendClass = 'trend-neutral';
             trendEmoji = '➡️';
             trendText = 'Yatay';
+            trendColor = '#f39c12';
         }
         
         // RSI color
         let rsiClass = 'rsi-neutral';
         let rsiStatus = 'Normal';
+        let rsiColor = '#95a5a6';
         if (ind.rsi < 30) {
             rsiClass = 'rsi-oversold';
-            rsiStatus = 'Aşırı Satım';
+            rsiStatus = 'Aşırı Satım (AL Fırsatı)';
+            rsiColor = '#00ff88';
         } else if (ind.rsi > 70) {
             rsiClass = 'rsi-overbought';
-            rsiStatus = 'Aşırı Alım';
+            rsiStatus = 'Aşırı Alım (SAT Fırsatı)';
+            rsiColor = '#ff6b6b';
+        }
+        
+        // Debug: Log indicators for this stock
+        console.log(`[${stock.symbol}] Indicators:`, {
+            superTrend: ind.superTrend ? `${ind.superTrend.trend} (${ind.superTrend.value?.toFixed(2)})` : 'null',
+            utBot: ind.utBot ? `${ind.utBot.trend} (buy:${ind.utBot.buyLevel?.toFixed(2)})` : 'null',
+            obv: ind.obv ? `${ind.obv.trend} (div:${ind.obv.divergence || 'none'})` : 'null',
+            macd: ind.macd ? `${ind.macd.crossover || 'none'} (${ind.macd.macd?.toFixed(2)})` : 'null'
+        });
+        
+        // Debug: Log advancedLevels
+        console.log(`[${stock.symbol}] AdvancedLevels:`, {
+            hasAdvancedLevels: !!rec.advancedLevels,
+            supportCount: rec.advancedLevels?.support?.length || 0,
+            resistanceCount: rec.advancedLevels?.resistance?.length || 0,
+            supports: rec.advancedLevels?.support || [],
+            resistances: rec.advancedLevels?.resistance || []
+        });
+        
+        // SuperTrend status
+        let superTrendEmoji = '⚪';
+        let superTrendText = 'Bekleme';
+        let superTrendColor = '#95a5a6';
+        if (ind.superTrend && ind.superTrend.trend === 'LONG') {
+            superTrendEmoji = '🟢';
+            superTrendText = 'Yükseliş';
+            superTrendColor = '#00ff88';
+        } else if (ind.superTrend && ind.superTrend.trend === 'SHORT') {
+            superTrendEmoji = '🔴';
+            superTrendText = 'Düşüş';
+            superTrendColor = '#ff4444';
+        }
+        
+        // UT Bot status
+        let utBotEmoji = '⚪';
+        let utBotText = 'Nötr';
+        let utBotColor = '#95a5a6';
+        if (ind.utBot && ind.utBot.trend === 'LONG') {
+            utBotEmoji = '🔵';
+            utBotText = 'Yükseliş';
+            utBotColor = '#4a9eff';
+        } else if (ind.utBot && ind.utBot.trend === 'SHORT') {
+            utBotEmoji = '🔴';
+            utBotText = 'Düşüş';
+            utBotColor = '#ff4444';
+        }
+        
+        // OBV Divergence
+        let obvEmoji = '➡️';
+        let obvText = 'Normal';
+        let obvColor = '#95a5a6';
+        if (ind.obv && ind.obv.divergence === 'BULLISH') {
+            obvEmoji = '💚';
+            obvText = 'Yükseliş Sinyali';
+            obvColor = '#00ff88';
+        } else if (ind.obv && ind.obv.divergence === 'BEARISH') {
+            obvEmoji = '⚠️';
+            obvText = 'Düşüş Uyarısı';
+            obvColor = '#ff6b6b';
+        }
+        
+        // MACD Crossover
+        let macdEmoji = '➡️';
+        let macdText = 'Nötr';
+        let macdColor = '#95a5a6';
+        if (ind.macd && ind.macd.crossover === 'BULLISH') {
+            macdEmoji = '🚀';
+            macdText = 'Altın Kesişim (AL)';
+            macdColor = '#00ff88';
+        } else if (ind.macd && ind.macd.crossover === 'BEARISH') {
+            macdEmoji = '💀';
+            macdText = 'Ölüm Kesişimi (SAT)';
+            macdColor = '#ff4444';
+        }
+        
+        // Stock type display
+        const stockTypeDisplay = rec.stockType || 'MIXED';
+        const focusAreaDisplay = rec.focusArea || 'Genel analiz';
+        let stockTypeEmoji = '📊';
+        let stockTypeColor = '#95a5a6';
+        
+        if (stockTypeDisplay === 'STABLE_UPTREND') {
+            stockTypeEmoji = '🏢'; stockTypeColor = '#2ecc71';
+        } else if (stockTypeDisplay === 'HIGH_MOMENTUM') {
+            stockTypeEmoji = '🚀'; stockTypeColor = '#e74c3c';
+        } else if (stockTypeDisplay === 'HIGH_VOLATILITY') {
+            stockTypeEmoji = '⚡'; stockTypeColor = '#f39c12';
+        } else if (stockTypeDisplay === 'STRONG_GROWTH') {
+            stockTypeEmoji = '📈'; stockTypeColor = '#9b59b6';
+        } else if (stockTypeDisplay === 'STABLE_DOWNTREND') {
+            stockTypeEmoji = '📉'; stockTypeColor = '#e67e22';
         }
         
         taPanel.innerHTML = `
-            <div class="ta-header">
-                <div class="ta-trend ${trendClass}">
-                    <span>${trendEmoji}</span>
-                    <span>${trendText}</span>
+            <div class="ta-header" style="background: linear-gradient(135deg, rgba(52, 152, 219, 0.15), rgba(41, 128, 185, 0.05)); padding: 10px; border-radius: 10px; margin-bottom: 10px;">
+                <div style="text-align: center; margin-bottom: 8px;">
+                    <div style="font-size: 1.3em; margin-bottom: 2px;">${trendEmoji}</div>
+                    <div style="font-size: 0.9em; font-weight: 700; color: ${trendColor}; margin-bottom: 4px;">${trendText}</div>
+                    <div style="font-size: 1.05em; color: #fff; font-weight: 600;">${currency}${ta.currentPrice.toFixed(2)}</div>
                 </div>
-                <div style="font-size: 0.95em; color: #fff; font-weight: bold;">
-                    ${currency}${ta.currentPrice.toFixed(2)}
+                ${stockTypeDisplay ? `
+                <div class="tooltip-container" style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px; margin-top: 8px; border: 1px solid rgba(255,255,255,0.1); cursor: help; position: relative;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <span style="font-size: 1.1em;">${stockTypeEmoji}</span>
+                        <span style="font-size: 0.8em; color: ${stockTypeColor}; font-weight: 600;">${stockTypeDisplay.replace('_', ' ')}</span>
+                    </div>
+                    <div class="tooltip" style="width: 280px;">
+                        <strong>Hisse Profili: ${stockTypeDisplay.replace('_', ' ')}</strong><br/>
+                        <span style="color: #aaa; font-size: 0.85em;">${focusAreaDisplay}</span>
+                    </div>
+                </div>
+                ` : ''}
+                <div style="text-align: center; margin-bottom: 8px;">
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;">
+                    <div class="tooltip-container" style="background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 5px; cursor: help; position: relative;">
+                        <div style="font-size: 0.7em; color: #888; margin-bottom: 3px;">SuperTrend</div>
+                        <div style="font-size: 0.85em; color: ${superTrendColor}; font-weight: 600;">${superTrendText}</div>
+                        <div class="tooltip" style="width: 220px;">
+                            <strong>SuperTrend - ${superTrendText}</strong><br/>
+                            ${superTrendText === 'Yükseliş' ? '✅ Kısa vadeli alım sinyali. Pozisyon tutmaya devam edebilir veya ekleme yapabilirsiniz.' : 
+                              superTrendText === 'Düşüş' ? '⚠️ Kısa vadeli satış sinyali. Pozisyonu azaltmayı veya çıkmayı düşünebilirsiniz.' : 
+                              '⏸️ Nötr durum. Trend bekleniyor, aceleci hareket etmeyin.'}
+                        </div>
+                    </div>
+                    <div class="tooltip-container" style="background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 5px; cursor: help; position: relative;">
+                        <div style="font-size: 0.7em; color: #888; margin-bottom: 3px;">UT Bot</div>
+                        <div style="font-size: 0.85em; color: ${utBotColor}; font-weight: 600;">${utBotText}</div>
+                        <div class="tooltip" style="width: 220px;">
+                            <strong>UT Bot - ${utBotText}</strong><br/>
+                            ${utBotText === 'Yükseliş' ? '✅ Ana trend pozitif. Uzun vadeli pozisyon tutmak için güvenli sinyal.' : 
+                              utBotText === 'Düşüş' ? '❌ Ana trend negatif. Pozisyondan çıkmayı ciddi olarak değerlendirin.' : 
+                              '⏸️ Nötr trend. Ana yön belirsiz, sabırlı olun.'}
+                        </div>
+                    </div>
+                    <div class="tooltip-container" style="background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 5px; cursor: help; position: relative;">
+                        <div style="font-size: 0.7em; color: #888; margin-bottom: 3px;">OBV</div>
+                        <div style="font-size: 0.85em; color: ${obvColor}; font-weight: 600;">${obvText}</div>
+                        <div class="tooltip" style="width: 220px;">
+                            <strong>OBV - ${obvText}</strong><br/>
+                            ${obvText === 'Yükseliş Sinyali' ? '💚 Fiyat düşüyor ama hacim yükseliyor - erken alım fırsatı!' : 
+                              obvText === 'Düşüş Uyarısı' ? '⚠️ Fiyat yükseliyor ama hacim düşüyor - dikkatli olun, zayıf hareket!' : 
+                              '➡️ Normal hacim-fiyat ilişkisi. Özel sinyal yok.'}
+                        </div>
+                    </div>
+                    <div class="tooltip-container" style="background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 5px; cursor: help; position: relative;">
+                        <div style="font-size: 0.7em; color: #888; margin-bottom: 3px;">MACD</div>
+                        <div style="font-size: 0.85em; color: ${macdColor}; font-weight: 600;">${macdText}</div>
+                        <div class="tooltip" style="width: 220px;">
+                            <strong>MACD - ${macdText}</strong><br/>
+                            ${macdText === 'Altın Kesişim (AL)' ? '🚀 Güçlü alım sinyali! MACD çizgisi sinyal çizgisini yukarı kesti - momentum pozitif.' : 
+                              macdText === 'Ölüm Kesişimi (SAT)' ? '💀 Güçlü satış sinyali! MACD çizgisi sinyal çizgisini aşağı kesti - momentum negatif.' : 
+                              '➡️ Kesişim yok. Mevcut momentum devam ediyor.'}
+                        </div>
+                    </div>
                 </div>
             </div>
             
-            <div class="ta-simple-section">
-                <div class="ta-simple-title">🎯 Alım</div>
-                <div class="ta-simple-price buy">${currency}${rec.buyPrice.toFixed(2)}</div>
-                <div class="ta-simple-desc">${ind.supportResistance ? `Destek: ${currency}${ind.supportResistance.support.toFixed(2)}` : 'Destek seviyesi.'}</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                <div class="ta-simple-section" style="background: rgba(0, 255, 136, 0.08); border: 2px solid rgba(0, 255, 136, 0.3); padding: 10px; border-radius: 8px;">
+                    <div class="ta-simple-title" style="font-size: 0.75em; font-weight: 700; color: #00ff88; margin-bottom: 4px;">🎯 1. Alım</div>
+                    <div class="ta-simple-price buy" style="font-size: 1.15em; font-weight: 800; color: #00ff88; margin-bottom: 3px;">${currency}${rec.buyPrice ? rec.buyPrice.toFixed(2) : 'N/A'}</div>
+                    ${rec.secondBuyPrice ? `
+                        <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(0, 255, 136, 0.2);">
+                            <div style="font-size: 0.65em; color: #888;">2. Alım (Derin): <span style="color: #00ff88; font-weight: 600;">${currency}${rec.secondBuyPrice.toFixed(2)}</span></div>
+                        </div>
+                    ` : (rec.advancedLevels && Array.isArray(rec.advancedLevels.support) && rec.advancedLevels.support.length > 1 && rec.advancedLevels.support[1].price < rec.buyPrice ? `
+                        <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(0, 255, 136, 0.2);">
+                            <div style="font-size: 0.65em; color: #888;">2. Alım (Alternatif): <span style="color: #00ff88; font-weight: 600;">${currency}${rec.advancedLevels.support[1].price.toFixed(2)}</span></div>
+                        </div>
+                    ` : '')}
+                </div>
+                
+                <div class="ta-simple-section" style="background: rgba(255, 107, 107, 0.08); border: 2px solid rgba(255, 107, 107, 0.3); padding: 10px; border-radius: 8px;">
+                    <div class="ta-simple-title" style="font-size: 0.75em; font-weight: 700; color: #ff6b6b; margin-bottom: 4px;">💰 1. Satış</div>
+                    <div class="ta-simple-price sell" style="font-size: 1.15em; font-weight: 800; color: #ff6b6b; margin-bottom: 3px;">${currency}${rec.sellPrice ? rec.sellPrice.toFixed(2) : 'N/A'}</div>
+                    ${rec.advancedLevels && Array.isArray(rec.advancedLevels.resistance) && rec.advancedLevels.resistance.length > 1 ? `
+                        <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255, 107, 107, 0.2);">
+                            <div style="font-size: 0.65em; color: #888;">2. Hedef: <span style="color: #ff6b6b; font-weight: 600;">${currency}${rec.advancedLevels.resistance[1].price.toFixed(2)}</span></div>
+                        </div>
+                    ` : ''}
+                </div>
             </div>
             
-            <div class="ta-simple-section">
-                <div class="ta-simple-title">💰 Satış</div>
-                <div class="ta-simple-price sell">${currency}${rec.sellPrice.toFixed(2)}</div>
-                <div class="ta-simple-desc">${ind.supportResistance ? `Direnç: ${currency}${ind.supportResistance.resistance.toFixed(2)}` : 'Direnç seviyesi.'}</div>
-            </div>
-            
-            <div class="ta-simple-section">
-                <div class="ta-simple-title">⚠️ Stop</div>
-                <div class="ta-simple-price stop">${currency}${rec.stopLoss.toFixed(2)}</div>
-                <div class="ta-simple-desc">Kriz için.</div>
-            </div>
-            
-            <div class="ta-simple-section" style="border-bottom: none;">
-                <div class="ta-simple-title">📊 RSI</div>
-                <div class="ta-simple-price ${rsiClass}">${ind.rsi ? ind.rsi.toFixed(1) : 'N/A'}</div>
-                <div class="ta-simple-desc">${rsiStatus}.</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                <div style="background: rgba(255, 255, 255, 0.03); padding: 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <div style="font-size: 0.7em; color: #888; margin-bottom: 4px; font-weight: 600;">⚠️ Stop Loss</div>
+                    <div style="font-size: 1em; color: #ff4444; font-weight: 700;">${currency}${rec.stopLoss.toFixed(2)}</div>
+                </div>
+                
+                <div style="background: rgba(255, 255, 255, 0.03); padding: 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <div style="font-size: 0.7em; color: #888; margin-bottom: 4px; font-weight: 600;">📊 RSI (14)</div>
+                    <div style="font-size: 1em; color: ${rsiColor}; font-weight: 700;">${ind.rsi ? ind.rsi.toFixed(1) : 'N/A'}</div>
+                </div>
             </div>
             
             ${sig.messages && sig.messages.length > 0 ? `
-            <div class="ta-signals">
-                <div class="ta-signals-title">📢 Sinyaller</div>
-                ${sig.messages.map(msg => `<div class="ta-signal-item">${msg}</div>`).join('')}
+            <div class="ta-signals" style="background: rgba(52, 152, 219, 0.08); padding: 10px; border-radius: 8px; border: 1px solid rgba(52, 152, 219, 0.2);">
+                <div class="ta-signals-title" style="font-size: 0.8em; font-weight: 700; color: #3498db; margin-bottom: 6px;">📢 Aktif Sinyaller</div>
+                ${sig.messages.map(msg => {
+                    let bgColor = 'rgba(255, 255, 255, 0.03)';
+                    let borderColor = 'rgba(255, 255, 255, 0.08)';
+                    if (msg.includes('🟢') || msg.includes('💚') || msg.includes('🚀')) {
+                        bgColor = 'rgba(0, 255, 136, 0.08)';
+                        borderColor = 'rgba(0, 255, 136, 0.2)';
+                    } else if (msg.includes('🔴') || msg.includes('⚠️') || msg.includes('💀')) {
+                        bgColor = 'rgba(255, 68, 68, 0.08)';
+                        borderColor = 'rgba(255, 68, 68, 0.2)';
+                    }
+                    return `<div class="ta-signal-item" style="padding: 6px 8px; background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 5px; margin-bottom: 4px; font-size: 0.75em; line-height: 1.3;">${msg}</div>`;
+                }).join('')}
             </div>` : ''}
         `;
     }
@@ -1021,6 +1617,8 @@
         }
     });
     // Update all stock prices (unified logic)
+    // YENILEME SİSTEMİ KALDIRILDI - F5 ile tam yenileme yeterli
+    /*
     async function updateAllStockPrices() {
         if (isUpdating) return;
         isUpdating = true;
@@ -1043,21 +1641,54 @@
                         derivedPostMarketPrice: meta.derivedPostMarketPrice,
                         regularMarketPrice: meta.regularMarketPrice,
                         previousClose: meta.previousClose,
-                        marketState: meta.marketState
+                        marketState: meta.marketState,
+                        marketStateRaw: meta.marketState,
+                        marketStateType: typeof meta.marketState
                     });
+                    
+                    // AUTO-DETECT MARKET STATE (API doesn't always provide it)
+                    const now = new Date();
+                    const utcHour = now.getUTCHours();
+                    const utcMinute = now.getUTCMinutes();
+                    const utcTimeInMinutes = utcHour * 60 + utcMinute;
+                    const dayOfWeek = now.getUTCDay();
+                    const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+                    
+                    let detectedMarketState = meta.marketState || 'REGULAR';
+                    if (isWeekday) {
+                        const preMarketStart = 8 * 60; // 08:00 UTC
+                        const regularStart = 13 * 60 + 30; // 13:30 UTC
+                        const regularEnd = 20 * 60; // 20:00 UTC
+                        const afterHoursEnd = 24 * 60; // 00:00 UTC
+                        
+                        if (utcTimeInMinutes >= preMarketStart && utcTimeInMinutes < regularStart) {
+                            detectedMarketState = 'PRE';
+                        } else if (utcTimeInMinutes >= regularEnd && utcTimeInMinutes < afterHoursEnd) {
+                            detectedMarketState = 'POST';
+                        } else if (utcTimeInMinutes >= regularStart && utcTimeInMinutes < regularEnd) {
+                            detectedMarketState = 'REGULAR';
+                        } else {
+                            detectedMarketState = 'CLOSED';
+                        }
+                    } else {
+                        detectedMarketState = 'CLOSED';
+                    }
+                    
+                    console.log(`[UPDATE] ${stock.symbol} market state: ${detectedMarketState} (UTC ${utcHour}:${String(utcMinute).padStart(2, '0')})`);
+                    
                     // previousClose belirleme: piyasa durumuna göre
                     let previousClose;
-                    if (meta.marketState === 'PRE' || meta.marketState === 'POST') {
+                    if (detectedMarketState === 'PRE' || detectedMarketState === 'POST') {
                         previousClose = meta.regularMarketPrice || meta.chartPreviousClose || meta.previousClose;
                     } else {
                         previousClose = meta.previousClose || meta.chartPreviousClose || meta.regularMarketPrice;
                     }
                     
-                    // Market status - SADECE marketState'e göre belirle
+                    // Market status - detected state'e göre belirle
                     let marketStatus = 'normal';
-                    if (meta.marketState === 'PRE') {
+                    if (detectedMarketState === 'PRE') {
                         marketStatus = 'premarket';
-                    } else if (meta.marketState === 'POST') {
+                    } else if (detectedMarketState === 'POST') {
                         marketStatus = 'postmarket';
                     }
                     
@@ -1110,7 +1741,9 @@
                     stock._lastUpdate = Date.now();
                     stockData[stock.symbol] = stock;
                     updateStockCard(stock, oldPrice, oldChange, oldChangePercent);
-                } catch(e){ console.error('Update fail', stock.symbol, e.message); }
+                } catch(e){ 
+                    console.error('Update fail', stock.symbol, e.message, e.stack); 
+                }
             }));
         } catch(e){
             console.error('Fiyat güncelleme hatası:', e.message);
@@ -1123,97 +1756,104 @@
             }
         }
     }
+    */
 
-    // Hisse kartını güncelle (hem card-stacked hem row-view)
+    // updateStockCard fonksiyonu da kaldırıldı - artık gerek yok
+    /*
     function updateStockCard(stock, oldPrice, oldChange, oldChangePercent) {
         const stockCard = document.querySelector(`.stock-card[data-symbol="${stock.symbol}"]`);
-        if (!stockCard) return;
+        if (!stockCard) {
+            console.warn(`[CARD UPDATE] Stock card not found for ${stock.symbol}`);
+            return;
+        }
         
+        console.log(`[CARD UPDATE] ${stock.symbol}: price ${oldPrice} → ${stock.price}, change ${oldChange} → ${stock.change}`);
+        
+        const currency = stock.symbol.endsWith('.IS') ? '₺' : '$';
+        
+        // 1. FİYAT GÜNCELLE - Sadece sayıyı değiştir, badge'lere dokunma
         const priceElements = stockCard.querySelectorAll('.stock-price');
-        const changeElements = stockCard.querySelectorAll('.stock-change');
-        const changePercentElements = stockCard.querySelectorAll('.stock-change-percent');
-        const marketStatusElements = stockCard.querySelectorAll('.market-status');
-        
-        // Eski market-status badge'lerini temizle
-        marketStatusElements.forEach(el => el.remove());
-        
-        // Yeni market-status badge'lerini ekle (hem card-stacked hem row-view için)
-        let marketStatusLabel = '';
-        if (stock.marketStatus === 'premarket') {
-            marketStatusLabel = '<div class="market-status inline-badge premarket">PRE</div>';
-        } else if (stock.marketStatus === 'postmarket') {
-            marketStatusLabel = '<div class="market-status inline-badge postmarket">POST</div>';
-        }
-        
-        // Card-stacked için
-        const cardStacked = stockCard.querySelector('.card-stacked');
-        if (cardStacked && marketStatusLabel) {
-            cardStacked.insertAdjacentHTML('afterbegin', marketStatusLabel);
-        }
-        
-        // Row-view için (fiyat kolonunda)
-        const cellPrice = stockCard.querySelector('.row-view .cell-price');
-        if (cellPrice && marketStatusLabel) {
-            const firstChild = cellPrice.firstChild;
-            cellPrice.insertAdjacentHTML('afterbegin', marketStatusLabel);
-        }
-        
-        // Fiyatları güncelle (tüm elementler için)
         priceElements.forEach(priceElement => {
-            // Fiyat değişimini vurgula
+            // Animasyon
             if (stock.price > oldPrice) {
-                priceElement.style.color = '#2ecc71';
-                priceElement.style.animation = 'priceUp 0.5s ease-in-out';
+                priceElement.classList.add('price-up');
+                setTimeout(() => priceElement.classList.remove('price-up'), 1000);
             } else if (stock.price < oldPrice) {
-                priceElement.style.color = '#e74c3c';
-                priceElement.style.animation = 'priceDown 0.5s ease-in-out';
+                priceElement.classList.add('price-down');
+                setTimeout(() => priceElement.classList.remove('price-down'), 1000);
             }
             
-            setTimeout(() => {
-                priceElement.style.color = '';
-                priceElement.style.animation = '';
-            }, 500);
-            
-            const currency = stock.symbol.endsWith('.IS') ? '₺' : '$';
-            // MANUEL PREMARKET FİYATLARI KULLAN (API'ler yanlış veri veriyor)
-            let displayPriceValue = stock.price;
-            if (stock.marketStatus === 'premarket' && stock.preMarketPrice !== undefined) {
-                displayPriceValue = stock.preMarketPrice;
-            } else if (stock.marketStatus === 'postmarket' && stock.postMarketPrice !== undefined) {
-                displayPriceValue = stock.postMarketPrice;
+            // Sadece ilk text node'u güncelle (badge'leri korumak için)
+            for (let i = 0; i < priceElement.childNodes.length; i++) {
+                const node = priceElement.childNodes[i];
+                if (node.nodeType === Node.TEXT_NODE) {
+                    node.textContent = `${currency}${Number(stock.price).toFixed(2)}`;
+                    break; // İlk text node'u bulduk, dur
+                }
             }
-            const sourceBadge = sourceBadgeFor(stock);
-            priceElement.innerHTML = `${currency}${Number(displayPriceValue).toFixed(2)} ${sourceBadge}`;
         });
-        console.log(`[CARD UPDATE] ${stock.symbol} price: ${displayPriceValue}, change: ${stock.change}, changePercent: ${stock.changePercent}`);
         
-        // Değişim değerlerini güncelle (tüm elementler için)
+        // 2. DEĞİŞİM GÜNCELLE
+        const changeElements = stockCard.querySelectorAll('.stock-change');
         changeElements.forEach(changeElement => {
             const sign = Number(stock.change) >= 0 ? '+' : '';
-            const currency = stock.symbol.endsWith('.IS') ? '₺' : '$';
             changeElement.textContent = `${sign}${Number(stock.change).toFixed(2)}`;
             changeElement.style.color = Number(stock.change) >= 0 ? '#2ecc71' : '#e74c3c';
-            changeElement.className = `stock-change ${Number(stock.change) >= 0 ? 'positive' : 'negative'}`;
         });
         
-        // Yüzde değerlerini güncelle (tüm elementler için)
+        // 3. YÜZDE GÜNCELLE
+        const changePercentElements = stockCard.querySelectorAll('.stock-change-percent');
         changePercentElements.forEach(changePercentElement => {
             const sign = Number(stock.changePercent) >= 0 ? '+' : '';
             changePercentElement.textContent = `${sign}${Number(stock.changePercent).toFixed(2)}%`;
             changePercentElement.style.color = Number(stock.changePercent) >= 0 ? '#2ecc71' : '#e74c3c';
-            changePercentElement.className = `stock-change-percent ${Number(stock.changePercent) >= 0 ? 'positive' : 'negative'}`;
         });
         
-        // Update Technical Analysis summary (LONG TERM)
-        let taElement = stockCard.querySelector('.ta-summary');
-        if (stock.technicalAnalysis) {
+        // 4. MARKET STATUS BADGE - Sadece yoksa ekle, varsa güncelle
+        const existingBadges = stockCard.querySelectorAll('.market-status');
+        const shouldShowBadge = stock.marketStatus === 'premarket' || stock.marketStatus === 'postmarket';
+        
+        if (shouldShowBadge) {
+            const badgeClass = stock.marketStatus === 'premarket' ? 'premarket' : 'postmarket';
+            const badgeText = stock.marketStatus === 'premarket' ? 'PRE' : 'POST';
+            
+            // Badge yoksa ekle
+            if (existingBadges.length === 0) {
+                const cardStacked = stockCard.querySelector('.card-stacked');
+                if (cardStacked) {
+                    const badge = document.createElement('div');
+                    badge.className = `market-status inline-badge ${badgeClass}`;
+                    badge.textContent = badgeText;
+                    cardStacked.insertBefore(badge, cardStacked.firstChild);
+                }
+            } else {
+                // Badge varsa sadece class ve text güncelle
+                existingBadges.forEach(badge => {
+                    badge.className = `market-status inline-badge ${badgeClass}`;
+                    badge.textContent = badgeText;
+                });
+            }
+        } else {
+            // Normal market saatinde badge'leri kaldır
+            existingBadges.forEach(badge => badge.remove());
+        }
+        
+        // ✅ BİTTİ! Technical Analysis UI'ını ASLA GÜNCELLEME!
+        // İlk yüklemede (addStock) oluşturuluyor, yenilemede dokunulmayacak.
+        // Sadece fiyat, değişim ve yüzde güncelledik.
+    }
+    */
+
+    // startAutoUpdate ve stopAutoUpdate da kaldırıldı
+    /*
+    function startAutoUpdate() {
             const ta = stock.technicalAnalysis;
             let trendEmoji, trendColor, trendShort;
             
             if (ta.signals.overall === 'STRONG_BULLISH') {
-                trendEmoji = '🚀'; trendColor = '#00ff00'; trendShort = 'Güçlü Yükseliş';
+                trendEmoji = '🚀'; trendColor = '#00ff88'; trendShort = 'Güçlü Yükseliş';
             } else if (ta.signals.overall === 'BULLISH') {
-                trendEmoji = '📈'; trendColor = '#51cf66'; trendShort = 'Yükseliş';
+                trendEmoji = '📈'; trendColor = '#2d7a3e'; trendShort = 'Yükseliş';
             } else if (ta.signals.overall === 'STRONG_BEARISH') {
                 trendEmoji = '💥'; trendColor = '#ff4444'; trendShort = 'Güçlü Düşüş';
             } else if (ta.signals.overall === 'BEARISH') {
@@ -1236,7 +1876,7 @@
                     positionTooltip = 'Price very close to support levels. Excellent level for adding positions.';
                 } else if (pos < 40) {
                     positionText = 'İyi Fiyat';
-                    positionBadge = '🟢';
+                    positionBadge = '🔵';
                     positionTooltip = 'Price close to support levels. Good level for adding positions.';
                 } else if (pos < 60) {
                     positionText = 'Orta Fiyat';
@@ -1270,7 +1910,7 @@
                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                         <div style="flex: 1;">
                             <div style="color: #888; font-size: 0.75em; margin-bottom: 4px;">Ekleme</div>
-                            <div style="color: #51cf66; font-weight: 600; font-size: 0.9em;">${currency}${ta.recommendations.buyPrice.toFixed(2)}</div>
+                            <div style="color: #2d7a3e; font-weight: 600; font-size: 0.9em;">${currency}${ta.recommendations.buyPrice.toFixed(2)}</div>
                         </div>
                         <div style="flex: 1; text-align: right;">
                             <div style="color: #888; font-size: 0.75em; margin-bottom: 4px;">Kısmi Satış</div>
@@ -1336,7 +1976,6 @@
         console.log('Otomatik güncelleme başlatıldı (2 dakika)');
     }
 
-    // Otomatik güncelleme durdur
     function stopAutoUpdate() {
         if (updateInterval) {
             clearInterval(updateInterval);
@@ -1344,71 +1983,12 @@
             console.log('Otomatik güncelleme durduruldu');
         }
     }
+    */
 
-
-
-    // Hisse kartını güncelle
-    function updateStockCard(stock, oldPrice, oldChange, oldChangePercent) {
-        const stockCard = document.querySelector(`[data-symbol="${stock.symbol}"]`);
-        if (!stockCard) return;
-        
-        const priceElement = stockCard.querySelector('.stock-price');
-        const changeElement = stockCard.querySelector('.stock-change');
-        const changePercentElement = stockCard.querySelector('.stock-change-percent');
-        const marketStatusElement = stockCard.querySelector('.market-status');
-        
-        // Piyasa durumu etiketini güncelle
-        if (marketStatusElement) {
-            marketStatusElement.remove();
-        }
-        
-        // Yeni piyasa durumu etiketini ekle
-        if (stock.marketStatus === 'premarket') {
-            const statusLabel = document.createElement('div');
-            statusLabel.className = 'market-status premarket';
-            statusLabel.textContent = 'Öncesi';
-            stockCard.insertBefore(statusLabel, stockCard.querySelector('h2'));
-        } else if (stock.marketStatus === 'postmarket') {
-            const statusLabel = document.createElement('div');
-            statusLabel.className = 'market-status postmarket';
-            statusLabel.textContent = 'Sonrası';
-            stockCard.insertBefore(statusLabel, stockCard.querySelector('h2'));
-        }
-        
-        const currency = stock.symbol.endsWith('.IS') ? '₺' : '$';
-        priceElements.forEach(pe => {
-            if (stock.price > oldPrice) {
-                pe.style.color = '#2ecc71';
-                pe.style.animation = 'priceUp 0.5s ease-in-out';
-            } else if (stock.price < oldPrice) {
-                pe.style.color = '#e74c3c';
-                pe.style.animation = 'priceDown 0.5s ease-in-out';
-            }
-            setTimeout(() => { pe.style.color=''; pe.style.animation=''; }, 500);
-            pe.textContent = `${currency}${Number(stock.price).toFixed(2)}`;
-        });
-        const sign = Number(stock.change) >= 0 ? '+' : '';
-        changeElements.forEach(ce => {
-            ce.textContent = `${sign}${Number(stock.change).toFixed(2)}`;
-            ce.style.color = Number(stock.change) >= 0 ? '#2ecc71' : '#e74c3c';
-            ce.className = `stock-change ${Number(stock.change) >= 0 ? 'positive' : 'negative'}`;
-        });
-        changePercentElements.forEach(cpe => {
-            const signPct = Number(stock.changePercent) >= 0 ? '+' : '';
-            cpe.textContent = `${signPct}${Number(stock.changePercent).toFixed(2)}%`;
-            cpe.style.color = Number(stock.changePercent) >= 0 ? '#2ecc71' : '#e74c3c';
-            cpe.className = `stock-change-percent ${Number(stock.changePercent) >= 0 ? 'positive' : 'negative'}`;
-        });
-    }
-
+    // Hisse kartlarını yükle
     loadInitialStocks();
-    startAutoUpdate();
     
-    // Manuel yenile butonu
-    const refreshBtn = document.getElementById('refresh-btn');
-    refreshBtn.addEventListener('click', () => {
-        updateAllStockPrices();
-    });
+    // Yenile butonu kaldırıldı - artık sadece F5 ile yenileme yapılacak
 
     // ================= View Toggle (Card/List) ==================
     const cardViewBtn = document.getElementById('card-view-btn');
@@ -1520,6 +2100,35 @@
         closeDebugBtn.addEventListener('click', () => { if(debugPanelEnabled) toggleDebugPanel(); });
     }
 
+    // Strategy Modal Event Listeners
+    const strategyBtn = document.getElementById('strategy-btn');
+    const strategyModal = document.getElementById('strategy-modal');
+    const strategyClose = document.getElementById('strategy-close');
+
+    if(strategyBtn){
+        strategyBtn.addEventListener('click', () => {
+            if(strategyModal){
+                strategyModal.style.display = 'flex';
+            }
+        });
+    }
+
+    if(strategyClose){
+        strategyClose.addEventListener('click', () => {
+            if(strategyModal){
+                strategyModal.style.display = 'none';
+            }
+        });
+    }
+
+    if(strategyModal){
+        strategyModal.addEventListener('click', (e) => {
+            if(e.target === strategyModal){
+                strategyModal.style.display = 'none';
+            }
+        });
+    }
+
     // Global Legend Modal Event Listeners
     const globalLegendBtn = document.getElementById('global-legend-btn');
     const globalLegendModal = document.getElementById('global-legend-modal');
@@ -1549,11 +2158,14 @@
         });
     }
 
-    // Close modal with ESC key
+    // Close modals with ESC key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' || e.key === 'Esc') {
             if (globalLegendModal && globalLegendModal.style.display === 'flex') {
                 globalLegendModal.style.display = 'none';
+            }
+            if (strategyModal && strategyModal.style.display === 'flex') {
+                strategyModal.style.display = 'none';
             }
         }
     });
@@ -1658,6 +2270,89 @@
             }
         });
     }
+
+    // ============================================
+    // HISSE ARAMA FONKSİYONLARI
+    // ============================================
+
+    async function searchStocks(query) {
+        if (!query || query.length < 1) {
+            searchResults.classList.remove('active');
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/search/${encodeURIComponent(query)}`);
+            const results = await response.json();
+            
+            if (results.length > 0) {
+                displaySearchResults(results);
+            } else {
+                searchResults.classList.remove('active');
+            }
+        } catch (error) {
+            console.error('Search error:', error);
+            searchResults.classList.remove('active');
+        }
+    }
+
+    function displaySearchResults(results) {
+        searchResults.innerHTML = '';
+        
+        results.forEach(result => {
+            const item = document.createElement('div');
+            item.className = 'search-result-item';
+            item.innerHTML = `
+                <div class="search-result-symbol">
+                    ${result.symbol}
+                    <span class="search-result-exchange">${result.exchange}</span>
+                </div>
+                <div class="search-result-name">${result.name}</div>
+            `;
+            
+            item.addEventListener('click', () => {
+                searchResults.classList.remove('active');
+                addStock(result.symbol);
+                stockInput.value = ''; // Temizle
+                stockInput.focus(); // Focus'u koru
+            });
+            
+            searchResults.appendChild(item);
+        });
+        
+        searchResults.classList.add('active');
+    }
+
+    // Input event listener
+    stockInput.addEventListener('input', (e) => {
+        const query = e.target.value.trim();
+        
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+        
+        if (query.length >= 1) {
+            searchTimeout = setTimeout(() => {
+                searchStocks(query);
+            }, 300); // 300ms debounce
+        } else {
+            searchResults.classList.remove('active');
+        }
+    });
+
+    // Close search results when clicking outside
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.search-wrapper')) {
+            searchResults.classList.remove('active');
+        }
+    });
+
+    // Prevent search close when clicking inside
+    searchResults.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
+    // ============================================
 
     // Periyodik olarak debug tablosunu güncelle (aktifse)
     setInterval(() => { if(debugPanelEnabled) renderDebugTable(); }, 5000);
