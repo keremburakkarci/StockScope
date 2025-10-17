@@ -1118,7 +1118,7 @@
                 openChartModal(stock.symbol);
             }
         });
-        
+
         // Row-view specific click handler
         const rowView = stockCard.querySelector('.row-view');
         if (rowView) {
@@ -1127,6 +1127,19 @@
                     openChartModal(stock.symbol);
                 }
             });
+        }
+
+        // Listen for technicalAnalysis updates and re-render panel if new data arrives
+        if (!stock._taListenerAdded) {
+            stock._taListenerAdded = true;
+            let lastTA = stock.technicalAnalysis;
+            const interval = setInterval(() => {
+                if (stock.technicalAnalysis && stock.technicalAnalysis !== lastTA) {
+                    lastTA = stock.technicalAnalysis;
+                    renderTechnicalAnalysisPanel(stock);
+                    clearInterval(interval);
+                }
+            }, 1000);
         }
         
         stockContainer.appendChild(stockCard);
@@ -1168,6 +1181,14 @@
         
         if (!stock.technicalAnalysis) {
             taPanel.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">Technical analysis data is loading.</div>';
+            // Try to reload after a short delay if data might arrive asynchronously
+            setTimeout(() => {
+                if (stock.technicalAnalysis) {
+                    renderTechnicalAnalysisPanel(stock);
+                } else {
+                    taPanel.innerHTML = '<div style="padding: 20px; text-align: center; color: #ff4444;">Technical analysis verisi alınamadı. Sunucu yanıtını ve ağ bağlantısını kontrol edin.</div>';
+                }
+            }, 1200);
             return;
         }
         

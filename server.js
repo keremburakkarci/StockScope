@@ -351,11 +351,16 @@ function calculateFibonacci(high, low) {
     };
 }
 
+// ============================================
+// PIVOT POINTS CALCULATION (ENHANCED - 3 TYPES)
+// ============================================
 // Pivot Points hesapla (günlük destek/direnç)
-function calculatePivotPoints(high, low, close) {
+// Standard, Fibonacci ve Camarilla pivot points
+function calculatePivotPointsLegacy(high, low, close) {
     const pivot = (high + low + close) / 3;
     
-    return {
+    // Standard Pivots
+    const standard = {
         pivot: pivot,
         r1: (2 * pivot) - low,
         r2: pivot + (high - low),
@@ -363,6 +368,37 @@ function calculatePivotPoints(high, low, close) {
         s1: (2 * pivot) - high,
         s2: pivot - (high - low),
         s3: low - 2 * (high - pivot)
+    };
+    
+    // Fibonacci Pivots
+    const fibonacci = {
+        pivot: pivot,
+        r1: pivot + 0.382 * (high - low),
+        r2: pivot + 0.618 * (high - low),
+        r3: pivot + 1.000 * (high - low),
+        s1: pivot - 0.382 * (high - low),
+        s2: pivot - 0.618 * (high - low),
+        s3: pivot - 1.000 * (high - low)
+    };
+    
+    // Camarilla Pivots (short-term, intraday focus)
+    const camarilla = {
+        r4: close + (high - low) * 1.1 / 2,
+        r3: close + (high - low) * 1.1 / 4,
+        r2: close + (high - low) * 1.1 / 6,
+        r1: close + (high - low) * 1.1 / 12,
+        s1: close - (high - low) * 1.1 / 12,
+        s2: close - (high - low) * 1.1 / 6,
+        s3: close - (high - low) * 1.1 / 4,
+        s4: close - (high - low) * 1.1 / 2
+    };
+    
+    // Return all types, prioritize Standard for long-term
+    return {
+        ...standard, // Backward compatibility
+        standard,
+        fibonacci,
+        camarilla
     };
 }
 
@@ -641,7 +677,7 @@ function findAdvancedSupportResistance(closes, highs, lows, volumes, lookbackPer
     };
     
     // 4. PIVOT POINTS (Standart + Fibonacci + Camarilla)
-    const pivots = calculatePivotPoints(swingHigh, swingLow, current);
+    const pivots = calculatePivotPointsLegacy(swingHigh, swingLow, current);
     
     // 5. DESTEK SEVİYELERİNİ BİRLEŞTİR ve SKORLA (OPTİMİZE - Yakınlık ağırlığı)
     const supportCandidates = [];
@@ -1100,30 +1136,36 @@ function findAdvancedSupportResistance(closes, highs, lows, volumes, lookbackPer
     const actionableResistanceZones = scoredResistanceZones.filter(z => ((z.center - current)/current) <= maxZoneDistancePct && z.center > current);
 
     // Ordering: önce mesafe (yakınlık), ardından skor (tie-break)
-    actionableSupportZones.sort((a,b) => {
+    actionableSupportZones.sort((a,b)=> {
         const da = (current - a.center)/current;
         const db = (current - b.center)/current;
         if (Math.abs(da - db) < 0.007) return b.score - a.score; // ~%0.7 fark altında skor önceliği
         return da - db;
     });
-    actionableResistanceZones.sort((a,b) => {
+    actionableResistanceZones.sort((a,b)=> {
         const da = (a.center - current)/current;
         const db = (b.center - current)/current;
         if (Math.abs(da - db) < 0.007) return b.score - a.score;
         return da - db;
     });
 
-    const minSupportGapAbs = Math.max(atr14 ? atr14 * 0.6 : current * 0.02, current * 0.02); // ATR veya %2
-    const minResistanceGapAbs = Math.max(atr14 ? atr14 * 0.6 : current * 0.02, current * 0.02);
     const primarySupportZone = actionableSupportZones[0] || null;
-    let secondarySupportZone = null;
-    if (primarySupportZone) {
-        secondarySupportZone = actionableSupportZones.find(z => (primarySupportZone.center - z.center) >= minSupportGapAbs);
-    }
-    const primaryResistanceZone = actionableResistanceZones[0] || null;
+    const secondarySupportZone = actionableSupportZones[1] || null;
+
+    // Uzun vadeli ve anlamlı satış seviyeleri için filtre
+    const minSupportGapAbs = Math.max(atr14 ? atr14 * 0.8 : current * 0.03, current * 0.03, 3.00); // ATR veya %3 - Uzun vade için
+    const minResistanceGapAbs = Math.max(atr14 ? atr14 * 0.8 : current * 0.10, current * 0.10, 10.00); // ATR veya %10 - Çok daha uzun vade
+    // Sadece son 1-2 yılın en yükseklerine yakın ve fiyatın %10-20 üzerinde olan dirençler
+    const longTermResistanceZones = actionableResistanceZones.filter(z => {
+        const pctAbove = (z.center - current) / current;
+        // Direnç zone'u fiyatın %10 üzerinde ve son 200 günün en yükseklerine yakın olmalı
+        return pctAbove >= 0.10 && pctAbove <= 0.20 && Math.abs(z.center - swingHigh) < (atr14 ? atr14 * 1.5 : current * 0.05);
+    });
+    // Sadece en güçlü zone'u ve gap'i büyük olanı seç
+    const primaryResistanceZone = longTermResistanceZones[0] || null;
     let secondaryResistanceZone = null;
     if (primaryResistanceZone) {
-        secondaryResistanceZone = actionableResistanceZones.find(z => (z.center - primaryResistanceZone.center) >= minResistanceGapAbs);
+        secondaryResistanceZone = longTermResistanceZones.find(z => (z.center - primaryResistanceZone.center) >= minResistanceGapAbs);
     }
 
     // Debug log - daha fazla metrik
@@ -1136,12 +1178,12 @@ function findAdvancedSupportResistance(closes, highs, lows, volumes, lookbackPer
         console.log(`  Zone Support2: YOK (gap < ${(minSupportGapAbs/current*100).toFixed(2)}%)`);
     }
     if (primaryResistanceZone){
-        console.log(`  Zone Resistance1: ${primaryResistanceZone.min.toFixed(2)}-${primaryResistanceZone.max.toFixed(2)} center ${primaryResistanceZone.center.toFixed(2)} dist ${((primaryResistanceZone.center - current)/current*100).toFixed(2)}% score ${primaryResistanceZone.score.toFixed(2)} types ${primaryResistanceZone.types.join('/')}`);
+        console.log(`  [UZUN VADE] Zone Resistance1: ${primaryResistanceZone.min.toFixed(2)}-${primaryResistanceZone.max.toFixed(2)} center ${primaryResistanceZone.center.toFixed(2)} dist ${((primaryResistanceZone.center - current)/current*100).toFixed(2)}% score ${primaryResistanceZone.score.toFixed(2)} types ${primaryResistanceZone.types.join('/')}`);
     }
     if (secondaryResistanceZone){
-        console.log(`  Zone Resistance2: ${secondaryResistanceZone.min.toFixed(2)}-${secondaryResistanceZone.max.toFixed(2)} center ${secondaryResistanceZone.center.toFixed(2)} gap ${( (secondaryResistanceZone.center - primaryResistanceZone.center)/current*100 ).toFixed(2)}% score ${secondaryResistanceZone.score.toFixed(2)}`);
+        console.log(`  [UZUN VADE] Zone Resistance2: ${secondaryResistanceZone.min.toFixed(2)}-${secondaryResistanceZone.max.toFixed(2)} center ${secondaryResistanceZone.center.toFixed(2)} gap ${( (secondaryResistanceZone.center - primaryResistanceZone.center)/current*100 ).toFixed(2)}% score ${secondaryResistanceZone.score.toFixed(2)}`);
     } else if (primaryResistanceZone) {
-        console.log(`  Zone Resistance2: YOK (gap < ${(minResistanceGapAbs/current*100).toFixed(2)}%)`);
+        console.log(`  [UZUN VADE] Zone Resistance2: YOK (gap < ${(minResistanceGapAbs/current*100).toFixed(2)}%)`);
     }
 
     // Psikolojik destek döngüsü daha yukarıda doğru şekilde kapandı.
@@ -1245,21 +1287,18 @@ function findAdvancedSupportResistance(closes, highs, lows, volumes, lookbackPer
             const proximityScore = 1 / (distancePercent + 0.01);
             return {
                 ...r,
-                score: r.totalStrength * proximityScore,
+                score: (r.totalStrength || 1) * proximityScore,
                 distancePercent
             };
         }).sort((a, b) => b.score - a.score);
-        
         const firstResistance = scoredResistances[0];
         selectedResistances.push(firstResistance);
         console.log(`  1st Resistance: $${firstResistance.price.toFixed(2)} (score: ${firstResistance.score.toFixed(2)}, distance: ${(firstResistance.distancePercent * 100).toFixed(1)}%)`);
-        
         // İkinci direnç: İlk dirençten minimum %3 uzakta ve güçlü olan
-        const remainingResistances = scoredResistances.filter(r => {
-            const gapPercent = (r.price - firstResistance.price) / current;
+        const remainingResistances = scoredResistances.filter(s => {
+            const gapPercent = (s.price - firstResistance.price) / current;
             return gapPercent >= minResistanceGapPercent;
         });
-        
         if (remainingResistances.length > 0) {
             const secondResistance = remainingResistances[0];
             selectedResistances.push(secondResistance);
@@ -1388,7 +1427,7 @@ function findSupportResistance(closes, highs, lows) {
     const current = closes[closes.length - 1];
     
     // Pivot noktaları kullan
-    const pivots = calculatePivotPoints(high, low, current);
+    const pivots = calculatePivotPointsLegacy(high, low, current);
     
     return {
         resistance: [pivots.r1, pivots.r2, pivots.r3].filter(r => r > current).sort((a, b) => a - b)[0],
@@ -1597,11 +1636,11 @@ function performTechnicalAnalysis(ohlcData) {
             secondBuyPrice = tmp;
             buyReason.push('(Oto Düzeltme: Buy1 > Buy2 kuralı uygulandı)');
         }
-        // Ek koruma: aradaki fark ÇOK küçükse (< %0.1 veya $0.5) ikinci alımı iptal et
-        // Zone mantığı zaten minimum gap (ATR*0.6 veya %2) kontrol ediyor, bu sadece son koruma
+        // Ek koruma: aradaki fark ÇOK küçükse (< %2.5 veya $2.5) ikinci alımı iptal et
+        // Zone mantığı zaten minimum gap (ATR*0.8 veya %3) kontrol ediyor, bu sadece son koruma - UZUN VADE
         const gapPct = ((buyPrice - secondBuyPrice) / buyPrice) * 100;
         const gapAbs = buyPrice - secondBuyPrice;
-        if (gapPct < 0.1 || gapAbs < 0.50) {
+        if (gapPct < 2.5 || gapAbs < 2.50) {
             buyReason.push(`(İkinci seviye iptal: Gap çok küçük - ${gapPct.toFixed(2)}% veya $${gapAbs.toFixed(2)})`);
             secondBuyPrice = null;
         }
@@ -1611,14 +1650,14 @@ function performTechnicalAnalysis(ohlcData) {
     if (!secondBuyPrice && validSupports.length > 1) {
         console.log('[FALLBACK] Zone2 yok, validSupports\'tan alternatif aranıyor...');
         // validSupports zaten fiyata göre sıralı (yüksekten düşüğe)
-        // buyPrice'dan düşük ve minimum %1 gap olan ilk seviyeyi bul
+        // buyPrice'dan düşük ve minimum %2.5 gap olan ilk seviyeyi bul
         for (let i = 0; i < validSupports.length; i++) {
             const candidate = validSupports[i];
             if (candidate.price < buyPrice) {
                 const gapPct = ((buyPrice - candidate.price) / buyPrice) * 100;
                 const gapAbs = buyPrice - candidate.price;
-                // Minimum %1 gap veya $1 mutlak fark
-                if (gapPct >= 1.0 || gapAbs >= 1.0) {
+                // Minimum %2.5 gap veya $2.5 mutlak fark - UZUN VADE
+                if (gapPct >= 2.5 || gapAbs >= 2.50) {
                     secondBuyPrice = candidate.price;
                     buyReason.push(`2. Alım (Alternatif): ${candidate.reason} - Gap: ${gapPct.toFixed(2)}%`);
                     console.log(`[FALLBACK] Alternatif bulundu: $${secondBuyPrice.toFixed(2)} (gap: ${gapPct.toFixed(2)}%)`);
@@ -1637,9 +1676,9 @@ function performTechnicalAnalysis(ohlcData) {
     // Direnç seviyelerinde veya aşırı yükseldiğinde kısmi sat
     const resistanceLevels = [];
     
-    // Gelişmiş direnç analizi varsa kullan
+    // Gelişmiş direnç analizi varsa kullan (daha fazla seviye ekle)
     if (advancedSR && advancedSR.allResistances && advancedSR.allResistances.length > 0) {
-        advancedSR.allResistances.slice(0, 3).forEach((resistance, idx) => {
+        advancedSR.allResistances.slice(0, 8).forEach((resistance, idx) => {
             resistanceLevels.push({
                 price: resistance.price,
                 reason: resistance.reason,
@@ -1649,17 +1688,18 @@ function performTechnicalAnalysis(ohlcData) {
     }
     
     // EMA dirençleri ekle (fiyatın üzerindeyse direnç!)
-    if (ema21 && ema21 > currentPrice) {
-        resistanceLevels.push({ price: ema21, reason: 'EMA 21 (Kısa vade direnç)', strength: 1.5 });
-    }
+    // NOT: EMA-21 kısa vade için çok yakın, uzun vadeli stratejide kullanmayalım
+    // if (ema21 && ema21 > currentPrice) {
+    //     resistanceLevels.push({ price: ema21, reason: 'EMA 21 (Kısa vade direnç)', strength: 1.5 });
+    // }
     if (ema50 && ema50 > currentPrice) {
-        resistanceLevels.push({ price: ema50, reason: 'EMA 50 (Orta vade direnç)', strength: 2 });
+        resistanceLevels.push({ price: ema50, reason: 'EMA 50 (Orta vade direnç)', strength: 2.5 });
     }
     if (ema100 && ema100 > currentPrice) {
-        resistanceLevels.push({ price: ema100, reason: 'EMA 100 (Güçlü direnç)', strength: 2.5 });
+        resistanceLevels.push({ price: ema100, reason: 'EMA 100 (Güçlü direnç)', strength: 3 });
     }
     if (ema200 && ema200 > currentPrice) {
-        resistanceLevels.push({ price: ema200, reason: 'EMA 200 (Çok güçlü direnç)', strength: 3 });
+        resistanceLevels.push({ price: ema200, reason: 'EMA 200 (Çok güçlü direnç)', strength: 3.5 });
     }
     
     // Bollinger üst bandı
@@ -1667,22 +1707,23 @@ function performTechnicalAnalysis(ohlcData) {
         resistanceLevels.push({ price: bb.upper, reason: 'Bollinger üst bandı', strength: 1.5 });
     }
     
-    // 50 günlük en yüksek + %5-10 (güçlü direnç bölgesi)
-    if (high50 > currentPrice) {
-        resistanceLevels.push({ price: high50 * 1.02, reason: '50 günlük zirve + %2', strength: 2 });
-        resistanceLevels.push({ price: high50 * 1.05, reason: '50 günlük zirve + %5', strength: 1.8 });
-    } else {
-        resistanceLevels.push({ price: high50 * 1.05, reason: '50 günlük zirve + %5', strength: 2 });
-        resistanceLevels.push({ price: high50 * 1.10, reason: '50 günlük zirve + %10', strength: 1.8 });
-    }
+    // 50 günlük en yüksek + %2-10 (güçlü direnç bölgesi)
+    // Uzun vadede HER ZAMAN hedef olarak ekle (fiyat üzerinde olsa bile)
+    resistanceLevels.push({ price: high50 * 1.02, reason: '50 günlük zirve + %2', strength: 2.2 });
+    resistanceLevels.push({ price: high50 * 1.05, reason: '50 günlük zirve + %5', strength: 2 });
+    resistanceLevels.push({ price: high50 * 1.10, reason: '50 günlük zirve + %10', strength: 1.8 });
+    resistanceLevels.push({ price: high50 * 1.15, reason: '50 günlük zirve + %15', strength: 1.5 });
     
-    // Fibonacci extension levels (güçlü kar al bölgeleri)
+    // Fibonacci extension levels (güçlü kar al bölgeleri) - HER ZAMAN EKLE
     if (advancedSR?.fibLevels) {
         const fib = advancedSR.fibLevels;
-        if (fib.level_1272 > currentPrice) {
+        if (fib.level_1000) {
+            resistanceLevels.push({ price: fib.level_1000, reason: 'Fibonacci %100 (önceki zirve)', strength: 2.8 });
+        }
+        if (fib.level_1272) {
             resistanceLevels.push({ price: fib.level_1272, reason: 'Fibonacci %127.2 Extension', strength: 2.5 });
         }
-        if (fib.level_1618 > currentPrice) {
+        if (fib.level_1618) {
             resistanceLevels.push({ price: fib.level_1618, reason: 'Fibonacci %161.8 Extension (Güçlü)', strength: 3 });
         }
     }
@@ -1707,28 +1748,106 @@ function performTechnicalAnalysis(ohlcData) {
     // En yakın ve en güçlü direnci al (direnç VEYA %0.5 aşağısındakiler)
     const validResistances = resistanceLevels.filter(r => r.price >= currentPrice * 0.995);
     
-    // SON GÜVENLİK: validResistances'ı fiyata göre artan sırada sırala (yakın önce)
-    // Böylece validResistances[0] her zaman en düşük (yakın), validResistances[1] daha uzak olur
-    validResistances.sort((a, b) => a.price - b.price);
+    // CLUSTER: Yakın dirençleri birleştir (desteklerde yaptığımız gibi)
+    const clusteredResistances = [];
+    const minResistanceGap = currentPrice * 0.040; // %4.0 minimum gap (UZUN VADE - anlamlı hedefler)
+    // Dinamik absolute gap: Düşük fiyatlı hisseler için daha düşük ($15 hisse için $0.60, $200 hisse için $5)
+    const absoluteMinGap = Math.min(5.00, Math.max(0.50, currentPrice * 0.015)); // Min $0.50, max $5.00, veya %1.5
+    
+    console.log(`Resistance clustering: minGap=${minResistanceGap.toFixed(2)} (${((minResistanceGap/currentPrice)*100).toFixed(1)}%), absMinGap=$${absoluteMinGap.toFixed(2)}`);
+    
+    validResistances.sort((a, b) => a.price - b.price); // Önce yakından uzağa sırala
+    
+    for (const resistance of validResistances) {
+        // Bu direnç, mevcut cluster'lardan herhangi birine çok yakın mı?
+        // Sadece yukarıya bakıyoruz (resistance.price >= cluster), aşağıya değil
+        const nearbyCluster = clusteredResistances.find(c => {
+            const gap = Math.abs(c.price - resistance.price);
+            return gap < Math.max(minResistanceGap, absoluteMinGap) && gap > 0.01; // En az $0.01 fark olmalı
+        });
+        
+        if (nearbyCluster) {
+            // Yakın bir cluster var, birleştir
+            // Daha güçlü olanın fiyatını kullan
+            if ((resistance.strength || 1) > (nearbyCluster.strength || 1)) {
+                nearbyCluster.price = resistance.price;
+                nearbyCluster.reason = resistance.reason;
+                nearbyCluster.strength = resistance.strength;
+            } else {
+                // Mevcut cluster daha güçlü, sadece sebepleri birleştir
+                if (!nearbyCluster.reason.includes(resistance.reason.split('(')[0])) {
+                    nearbyCluster.reason += ` + ${resistance.reason}`;
+                }
+                nearbyCluster.strength = Math.max(nearbyCluster.strength || 1, resistance.strength || 1);
+            }
+        } else {
+            // Yeni cluster oluştur
+            clusteredResistances.push({
+                price: resistance.price,
+                reason: resistance.reason,
+                strength: resistance.strength || 1
+            });
+        }
+    }
+    
+    // Cluster sonrası tekrar sırala (yakın önce, güçlü öncelikli)
+    clusteredResistances.sort((a, b) => {
+        const distanceA = a.price - currentPrice;
+        const distanceB = b.price - currentPrice;
+        const distanceDiff = distanceA - distanceB;
+        
+        // %5'ten az fark varsa güce bak
+        if (Math.abs(distanceDiff) < currentPrice * 0.05) {
+            return (b.strength || 1) - (a.strength || 1);
+        }
+        return distanceDiff;
+    });
+    
+    // SON GÜVENLİK: clusteredResistances'ı fiyata göre artan sırada sırala
+    clusteredResistances.sort((a, b) => a.price - b.price);
+    
+    // Swap guard SORTING SONRASI: İkinci direnç birinciden küçük/eşitse swap et veya sil
+    if (clusteredResistances.length >= 2) {
+        const gap = clusteredResistances[1].price - clusteredResistances[0].price;
+        const gapPct = (gap / clusteredResistances[0].price) * 100;
+        
+        // ÖNCE: Ters sıra kontrolü (R2 < R1)
+        if (gap < 0) {
+            console.log(`⚠️ RESISTANCE REVERSED: R1=$${clusteredResistances[0].price.toFixed(2)} > R2=$${clusteredResistances[1].price.toFixed(2)}, swapping...`);
+            [clusteredResistances[0], clusteredResistances[1]] = [clusteredResistances[1], clusteredResistances[0]];
+        }
+        // SONRA: Gap çok küçükse sil
+        else if (gap < 0.01 || gapPct < 0.5) {
+            // Gap çok küçük (<$0.01 veya <%0.5), ikinci direnci sil
+            console.log(`⚠️ RESISTANCE GAP TOO SMALL: R1=$${clusteredResistances[0].price.toFixed(2)}, R2=$${clusteredResistances[1].price.toFixed(2)}, gap=${gapPct.toFixed(2)}%, removing R2...`);
+            clusteredResistances.splice(1, 1);
+        }
+    }
     
     // Debug: Support/Resistance details
+    console.log(`Resistance cluster debug: validResistances=${validResistances.length}, clusteredResistances=${clusteredResistances.length}`);
     if (validSupports.length > 0) {
         console.log(`Support levels (top 3): ${validSupports.slice(0, 3).map(s => `$${s.price.toFixed(2)} (${s.reason})`).join(', ')}`);
     }
-    if (validResistances.length > 0) {
-        console.log(`Resistance levels (top 3): ${validResistances.slice(0, 3).map(r => `$${r.price.toFixed(2)} (${r.reason})`).join(', ')}`);
+    if (clusteredResistances.length > 0) {
+        console.log(`Resistance levels (clustered, top 3): ${clusteredResistances.slice(0, 3).map(r => `$${r.price.toFixed(2)} (${r.reason})`).join(', ')}`);
+    } else {
+        console.log(`⚠️ NO CLUSTERED RESISTANCES! Checking validResistances...`);
+        if (validResistances.length > 0) {
+            console.log(`Valid resistances before clustering: ${validResistances.slice(0, 5).map(r => `$${r.price.toFixed(2)} (${r.reason})`).join(', ')}`);
+        }
     }
     
-    if (validResistances.length > 0) {
-        sellPrice = validResistances[0].price;
-        sellReason.push(`Kısmi satış: ${validResistances[0].reason}`);
+    if (clusteredResistances.length > 0) {
+        sellPrice = clusteredResistances[0].price;
+        sellReason.push(`Kısmi satış: ${clusteredResistances[0].reason}`);
         
         // İkinci ve üçüncü direnç hedefleri
-        if (validResistances.length > 1) {
-            sellReason.push(`2. Hedef: ${validResistances[1].reason} ($${validResistances[1].price.toFixed(2)})`);
+        if (clusteredResistances.length > 1) {
+            sellReason.push(`2. Hedef: ${clusteredResistances[1].reason} ($${clusteredResistances[1].price.toFixed(2)})`);
         }
-        if (validResistances.length > 2) {
-            sellReason.push(`3. Güçlü Direnç: ${validResistances[2].reason} ($${validResistances[2].price.toFixed(2)})`);
+        if (clusteredResistances.length > 2) {
+            sellReason.push(`3. Güçlü Direnç: ${clusteredResistances[2].reason} ($${clusteredResistances[2].price.toFixed(2)})`);
         }
     } else {
         sellPrice = high50 * 1.15;
@@ -1854,7 +1973,7 @@ function performTechnicalAnalysis(ohlcData) {
         }
     }
     
-    return {
+    const result = {
         currentPrice: currentPrice,
         indicators: {
             ema50: ema50,
@@ -1935,14 +2054,28 @@ function performTechnicalAnalysis(ohlcData) {
                     }
                     return levels;
                 })(),
-                resistance: validResistances && validResistances.length > 0 ? validResistances.slice(0, 3).map(r => ({
-                    price: r.price,
-                    reason: r.reason,
-                    strength: r.strength
-                })) : []
+                resistance: (() => {
+                    // Uzun vadeli zone ve RSI > 70 ise
+                    if (advancedSR && Array.isArray(advancedSR.resistanceZones) && rsi > 70) {
+                        return advancedSR.resistanceZones.slice(0, 3).map(z => ({
+                            price: z.center,
+                            reason: `[UZUN VADE ZONE] ${z.types.join(', ')} | Skor: ${z.score.toFixed(1)} | RSI=${rsi.toFixed(1)}`,
+                            strength: z.score
+                        }));
+                    } else {
+                        // Fallback: Klasik cluster
+                        return clusteredResistances && clusteredResistances.length > 0 ? clusteredResistances.slice(0, 3).map(r => ({
+                            price: r.price,
+                            reason: r.reason,
+                            strength: r.strength || 1
+                        })) : [];
+                    }
+                })()
             }
         }
     };
+    
+    return result;
 }
 
 // ============================================
@@ -2036,6 +2169,71 @@ async function fetchYahooHistoricalData(symbol) {
     });
 }
 
+// ============================================
+// PIVOT POINTS CALCULATION (Yahoo Finance Based)
+// ============================================
+
+function calculatePivotPoints(ohlcData) {
+    if (!ohlcData || !ohlcData.highs || !ohlcData.lows || !ohlcData.closes) {
+        return null;
+    }
+    
+    const { highs, lows, closes } = ohlcData;
+    const len = closes.length;
+    
+    if (len < 1) return null;
+    
+    // Use last completed day's data
+    const high = highs[len - 1];
+    const low = lows[len - 1];
+    const close = closes[len - 1];
+    
+    // Standard Pivot Points
+    const PP = (high + low + close) / 3;
+    const R1 = (2 * PP) - low;
+    const R2 = PP + (high - low);
+    const R3 = high + 2 * (PP - low);
+    const S1 = (2 * PP) - high;
+    const S2 = PP - (high - low);
+    const S3 = low - 2 * (high - PP);
+    
+    // Fibonacci Pivot Points
+    const fibPP = PP;
+    const fibR1 = PP + 0.382 * (high - low);
+    const fibR2 = PP + 0.618 * (high - low);
+    const fibR3 = PP + 1.000 * (high - low);
+    const fibS1 = PP - 0.382 * (high - low);
+    const fibS2 = PP - 0.618 * (high - low);
+    const fibS3 = PP - 1.000 * (high - low);
+    
+    // Camarilla Pivot Points
+    const camR4 = close + (high - low) * 1.1 / 2;
+    const camR3 = close + (high - low) * 1.1 / 4;
+    const camR2 = close + (high - low) * 1.1 / 6;
+    const camR1 = close + (high - low) * 1.1 / 12;
+    const camS1 = close - (high - low) * 1.1 / 12;
+    const camS2 = close - (high - low) * 1.1 / 6;
+    const camS3 = close - (high - low) * 1.1 / 4;
+    const camS4 = close - (high - low) * 1.1 / 2;
+    
+    return {
+        standard: {
+            pivot: PP,
+            resistances: [R1, R2, R3],
+            supports: [S1, S2, S3]
+        },
+        fibonacci: {
+            pivot: fibPP,
+            resistances: [fibR1, fibR2, fibR3],
+            supports: [fibS1, fibS2, fibS3]
+        },
+        camarilla: {
+            resistances: [camR1, camR2, camR3, camR4],
+            supports: [camS1, camS2, camS3, camS4]
+        }
+    };
+}
+
 async function getStockData(symbol) {
     // Cache check
     const cached = getCached(symbol);
@@ -2126,6 +2324,13 @@ async function getStockData(symbol) {
                                 if (technicalAnalysis) {
                                     meta.technicalAnalysis = technicalAnalysis;
                                     console.log(`${symbol}: Technical analysis completed - Trend: ${technicalAnalysis.signals.overall} (${validIndices.length} days of data)`);
+                                    
+                                    // Calculate Pivot Points (Yahoo Finance based - no API key needed!)
+                                    const pivotPoints = calculatePivotPoints(ohlcData);
+                                    if (pivotPoints) {
+                                        meta.technicalAnalysis.pivotPoints = pivotPoints;
+                                        console.log(`${symbol}: Pivot Points calculated - Standard: R3=${pivotPoints.standard.resistances[2].toFixed(2)}, S3=${pivotPoints.standard.supports[2].toFixed(2)}`);
+                                    }
                                 }
                             }
                         }
