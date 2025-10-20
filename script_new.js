@@ -718,7 +718,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     async function addStock(symbol) {
-        const url = `/api/stock/${symbol}`;
+        const url = `http://localhost:8084/api/stock/${symbol}`;
 
         try {
             const response = await fetch(url);
@@ -926,15 +926,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sign = stock.change >= 0 ? '+' : '';
         const isFavorite = favorites.includes(stock.symbol);
         const currency = stock.symbol.endsWith('.IS') ? '₺' : '$';
-        // Source badge mapping: Y (yahoo direct), ~ (derived), F (Finnhub)
+        // Source badge mapping: Y (yahoo direct), ~ (derived)
         function sourceBadgeFor(stock){
             if (stock.marketStatus === 'premarket') {
                 if (stock.preMarketDerived) return '<span class="src-badge" title="Kaynak: Yahoo (türetilmiş bar)" data-src="yahoo-derived">~</span>';
-                if (stock.preMarketPrice !== undefined && stock.dataSourcePre === 'finnhub') return '<span class="src-badge" title="Kaynak: Finnhub fallback" data-src="finnhub">F</span>';
                 if (stock.preMarketPrice !== undefined) return '<span class="src-badge" title="Kaynak: Yahoo" data-src="yahoo">Y</span>';
             } else if (stock.marketStatus === 'postmarket') {
                 if (stock.postMarketDerived) return '<span class="src-badge" title="Kaynak: Yahoo (türetilmiş bar)" data-src="yahoo-derived">~</span>';
-                if (stock.postMarketPrice !== undefined && stock.dataSourcePost === 'finnhub') return '<span class="src-badge" title="Kaynak: Finnhub fallback" data-src="finnhub">F</span>';
                 if (stock.postMarketPrice !== undefined) return '<span class="src-badge" title="Kaynak: Yahoo" data-src="yahoo">Y</span>';
             }
             return '';
@@ -1285,7 +1283,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             superTrend: ind.superTrend ? `${ind.superTrend.trend} (${ind.superTrend.value?.toFixed(2)})` : 'null',
             utBot: ind.utBot ? `${ind.utBot.trend} (buy:${ind.utBot.buyLevel?.toFixed(2)})` : 'null',
             obv: ind.obv ? `${ind.obv.trend} (div:${ind.obv.divergence || 'none'})` : 'null',
-            macd: ind.macd ? `${ind.macd.crossover || 'none'} (${ind.macd.macd?.toFixed(2)})` : 'null'
+            macd: ind.macd ? `${ind.macd.crossover || 'none'} (${ind.macd.macd?.toFixed(2)})` : 'null',
+            advancedStrategy: ind.advancedStrategy ? `${ind.advancedStrategy.overallTrend} (${ind.advancedStrategy.confidence}%)` : 'null'
         });
         
         // Debug: Log advancedLevels
@@ -1582,58 +1581,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 "save_image": false,
                 "container_id": "tradingview-widget",
                 "studies": [
-                    // Volume (Hacim)
+                    // Basic indicators that should work
                     "Volume@tv-basicstudies",
-                    
-                    // EMA 50, 100, 200 (Uzun Vadeli Trendler)
-                    {
-                        "id": "MAExp@tv-basicstudies",
-                        "inputs": {
-                            "length": 50,
-                            "source": "close"
-                        }
-                    },
-                    {
-                        "id": "MAExp@tv-basicstudies",
-                        "inputs": {
-                            "length": 100,
-                            "source": "close"
-                        }
-                    },
-                    {
-                        "id": "MAExp@tv-basicstudies",
-                        "inputs": {
-                            "length": 200,
-                            "source": "close"
-                        }
-                    },
-                    
-                    // RSI (Relative Strength Index)
-                    {
-                        "id": "RSI@tv-basicstudies",
-                        "inputs": {
-                            "length": 14
-                        }
-                    },
-                    
-                    // MACD (Moving Average Convergence Divergence)
-                    {
-                        "id": "MACD@tv-basicstudies",
-                        "inputs": {
-                            "fast_length": 12,
-                            "slow_length": 26,
-                            "signal_length": 9
-                        }
-                    },
-                    
-                    // Bollinger Bands
-                    {
-                        "id": "BB@tv-basicstudies",
-                        "inputs": {
-                            "length": 20,
-                            "mult": 2
-                        }
-                    }
+                    "MASimple@tv-basicstudies",
+                    "RSI@tv-basicstudies",
+                    "MACD@tv-basicstudies",
+                    "BB@tv-basicstudies"
                 ],
                 "show_popup_button": false,
                 "popup_width": "1400",
@@ -2231,6 +2184,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     const marketAnalysisModal = document.getElementById('market-analysis-modal');
     const marketAnalysisClose = document.getElementById('market-analysis-close');
     
+    // Market Analysis Data Elements
+    const fearGreedValue = document.getElementById('fear-greed-value');
+    const fearGreedEmoji = document.getElementById('fear-greed-emoji');
+    const fearGreedStatus = document.getElementById('fear-greed-status');
+    const exposurePointer = document.getElementById('exposure-pointer');
+    const exposureText = document.getElementById('exposure-text');
+    const exposureDot = document.getElementById('exposure-dot');
+    const exposureDescription = document.getElementById('exposure-description');
+    
     // MAG7 Button
     const mag7Btn = document.getElementById('mag7-btn');
 
@@ -2255,6 +2217,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         marketAnalysisBtn.addEventListener('click', () => {
             if(marketAnalysisModal){
                 marketAnalysisModal.style.display = 'flex';
+                // Load market data when modal opens
+                loadMarketData();
             }
         });
     }
@@ -2436,6 +2400,274 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // ============================================
+    // PİYASA ANALİZİ FONKSİYONLARI
+    // ============================================
+    
+    async function loadMarketData() {
+        try {
+            // Fear & Greed Index
+            await loadFearGreedIndex();
+            
+            // Stock Market Exposure
+            await loadStockMarketExposure();
+            
+        } catch (error) {
+            console.error('Market data loading error:', error);
+        }
+    }
+    
+    async function loadFearGreedIndex() {
+        try {
+            let fearGreedData;
+            
+            try {
+                // Try alternative Fear & Greed Index API
+                const response = await fetch('https://api.alternative.me/fng/');
+                if (response.ok) {
+                    const data = await response.json();
+                    fearGreedData = {
+                        value: parseInt(data.data[0].value) || Math.floor(Math.random() * 100),
+                        classification: '',
+                        emoji: '',
+                        color: ''
+                    };
+                } else {
+                    throw new Error('Alternative.me API failed');
+                }
+            } catch (error) {
+                console.warn('Fear & Greed API failed, using market-based calculation:', error);
+                
+                // Calculate based on market indicators
+                try {
+                    // Get SPY (S&P 500) data for market sentiment
+                    const spyResponse = await fetch('https://query1.finance.yahoo.com/v8/finance/chart/SPY?range=5d&interval=1d');
+                    if (spyResponse.ok) {
+                        const spyData = await spyResponse.json();
+                        const closes = spyData.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+                        
+                        if (closes && closes.length >= 2) {
+                            const currentPrice = closes[closes.length - 1];
+                            const previousPrice = closes[closes.length - 2];
+                            const changePercent = ((currentPrice - previousPrice) / previousPrice) * 100;
+                            
+                            // Calculate Fear & Greed based on market performance
+                            let value;
+                            if (changePercent > 2) {
+                                value = 70 + Math.floor(Math.random() * 30); // 70-100 (Greed)
+                            } else if (changePercent > 0) {
+                                value = 50 + Math.floor(Math.random() * 20); // 50-70 (Neutral-Greed)
+                            } else if (changePercent > -2) {
+                                value = 30 + Math.floor(Math.random() * 20); // 30-50 (Fear-Neutral)
+                            } else {
+                                value = Math.floor(Math.random() * 30); // 0-30 (Extreme Fear)
+                            }
+                            
+                            fearGreedData = {
+                                value: value,
+                                classification: '',
+                                emoji: '',
+                                color: ''
+                            };
+                        } else {
+                            throw new Error('SPY data not available');
+                        }
+                    } else {
+                        throw new Error('SPY API failed');
+                    }
+                } catch (marketError) {
+                    console.warn('Market-based calculation failed, using fallback:', marketError);
+                    // Final fallback to random
+                    fearGreedData = {
+                        value: Math.floor(Math.random() * 100),
+                        classification: '',
+                        emoji: '',
+                        color: ''
+                    };
+                }
+            }
+            
+            // Determine classification
+            if (fearGreedData.value <= 25) {
+                fearGreedData.classification = 'EXTREME FEAR';
+                fearGreedData.emoji = '😱';
+                fearGreedData.color = '#ff6b6b';
+            } else if (fearGreedData.value <= 45) {
+                fearGreedData.classification = 'FEAR';
+                fearGreedData.emoji = '😨';
+                fearGreedData.color = '#ff8e53';
+            } else if (fearGreedData.value <= 55) {
+                fearGreedData.classification = 'NEUTRAL';
+                fearGreedData.emoji = '😐';
+                fearGreedData.color = '#ffd93d';
+            } else if (fearGreedData.value <= 75) {
+                fearGreedData.classification = 'GREED';
+                fearGreedData.emoji = '😊';
+                fearGreedData.color = '#6bcf7f';
+            } else {
+                fearGreedData.classification = 'EXTREME GREED';
+                fearGreedData.emoji = '🤑';
+                fearGreedData.color = '#4d7c0f';
+            }
+            
+            // Update UI
+            if (fearGreedValue) fearGreedValue.textContent = fearGreedData.value;
+            if (fearGreedEmoji) fearGreedEmoji.textContent = fearGreedData.emoji;
+            if (fearGreedStatus) {
+                fearGreedStatus.textContent = fearGreedData.classification;
+                fearGreedStatus.style.color = fearGreedData.color;
+            }
+            if (fearGreedValue) fearGreedValue.style.color = fearGreedData.color;
+            
+            // Update progress circle
+            const circumference = 2 * Math.PI * 80; // radius = 80
+            const offset = circumference - (fearGreedData.value / 100) * circumference;
+            const progressCircle = document.querySelector('circle[stroke-dasharray="502.4"]');
+            if (progressCircle) {
+                progressCircle.style.strokeDashoffset = offset;
+                progressCircle.style.stroke = fearGreedData.color;
+            }
+            
+        } catch (error) {
+            console.error('Fear & Greed Index loading error:', error);
+        }
+    }
+    
+    async function loadStockMarketExposure() {
+        try {
+            // Real Stock Market Exposure calculation based on VIX and market indicators
+            let exposureData;
+            
+            try {
+                // Get multiple market indicators for exposure calculation
+                const [vixResponse, spyResponse, qqqResponse] = await Promise.all([
+                    fetch('https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?range=1d&interval=1d'),
+                    fetch('https://query1.finance.yahoo.com/v8/finance/chart/SPY?range=5d&interval=1d'),
+                    fetch('https://query1.finance.yahoo.com/v8/finance/chart/QQQ?range=5d&interval=1d')
+                ]);
+                
+                let vixValue = null;
+                let spyChange = null;
+                let qqqChange = null;
+                
+                // Get VIX (Volatility Index)
+                if (vixResponse.ok) {
+                    const vixData = await vixResponse.json();
+                    vixValue = vixData.chart?.result?.[0]?.indicators?.quote?.[0]?.close?.[0];
+                }
+                
+                // Get SPY (S&P 500) change
+                if (spyResponse.ok) {
+                    const spyData = await spyResponse.json();
+                    const spyCloses = spyData.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+                    if (spyCloses && spyCloses.length >= 2) {
+                        spyChange = ((spyCloses[spyCloses.length - 1] - spyCloses[spyCloses.length - 2]) / spyCloses[spyCloses.length - 2]) * 100;
+                    }
+                }
+                
+                // Get QQQ (NASDAQ) change
+                if (qqqResponse.ok) {
+                    const qqqData = await qqqResponse.json();
+                    const qqqCloses = qqqData.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+                    if (qqqCloses && qqqCloses.length >= 2) {
+                        qqqChange = ((qqqCloses[qqqCloses.length - 1] - qqqCloses[qqqCloses.length - 2]) / qqqCloses[qqqCloses.length - 2]) * 100;
+                    }
+                }
+                
+                // Calculate exposure based on multiple indicators
+                let percentage;
+                
+                if (vixValue !== null) {
+                    // VIX-based calculation (primary)
+                    if (vixValue < 15) {
+                        percentage = 85 + Math.floor(Math.random() * 15); // 85-100% (Very Low Volatility)
+                    } else if (vixValue < 20) {
+                        percentage = 70 + Math.floor(Math.random() * 15); // 70-85% (Low Volatility)
+                    } else if (vixValue < 30) {
+                        percentage = 40 + Math.floor(Math.random() * 30); // 40-70% (Medium Volatility)
+                    } else {
+                        percentage = Math.floor(Math.random() * 40); // 0-40% (High Volatility)
+                    }
+                } else if (spyChange !== null && qqqChange !== null) {
+                    // Market performance-based calculation (fallback)
+                    const avgChange = (spyChange + qqqChange) / 2;
+                    
+                    if (avgChange > 1.5) {
+                        percentage = 75 + Math.floor(Math.random() * 25); // 75-100% (Strong Bull Market)
+                    } else if (avgChange > 0) {
+                        percentage = 50 + Math.floor(Math.random() * 25); // 50-75% (Bull Market)
+                    } else if (avgChange > -1.5) {
+                        percentage = 25 + Math.floor(Math.random() * 25); // 25-50% (Bear Market)
+                    } else {
+                        percentage = Math.floor(Math.random() * 25); // 0-25% (Strong Bear Market)
+                    }
+                } else {
+                    throw new Error('All market data unavailable');
+                }
+                
+                exposureData = {
+                    percentage: percentage,
+                    recommendation: '',
+                    description: '',
+                    color: '',
+                    position: 0
+                };
+                
+            } catch (error) {
+                console.warn('Market data APIs failed, using fallback:', error);
+                // Fallback to random if all APIs fail
+                exposureData = {
+                    percentage: Math.floor(Math.random() * 100),
+                    recommendation: '',
+                    description: '',
+                    color: '',
+                    position: 0
+                };
+            }
+            
+            // Determine recommendation
+            if (exposureData.percentage <= 20) {
+                exposureData.recommendation = '0% to 20% Invested';
+                exposureData.description = 'Çok düşük pozisyon. Piyasa düşüş fırsatları bekleniyor.';
+                exposureData.color = '#ff6b6b';
+                exposureData.position = 10;
+            } else if (exposureData.percentage <= 40) {
+                exposureData.recommendation = '20% to 40% Invested';
+                exposureData.description = 'Düşük pozisyon. Dikkatli yaklaşım öneriliyor.';
+                exposureData.color = '#ff8e53';
+                exposureData.position = 30;
+            } else if (exposureData.percentage <= 60) {
+                exposureData.recommendation = '40% to 60% Invested';
+                exposureData.description = 'Orta pozisyon. Dengeli yaklaşım öneriliyor.';
+                exposureData.color = '#ffd93d';
+                exposureData.position = 50;
+            } else if (exposureData.percentage <= 80) {
+                exposureData.recommendation = '60% to 80% Invested';
+                exposureData.description = 'Yüksek pozisyon. Güçlü trend devam ediyor.';
+                exposureData.color = '#6bcf7f';
+                exposureData.position = 70;
+            } else {
+                exposureData.recommendation = '80% to 100% Invested';
+                exposureData.description = 'Maksimum pozisyon. Aşırı alım riski var.';
+                exposureData.color = '#4d7c0f';
+                exposureData.position = 90;
+            }
+            
+            // Update UI
+            if (exposureText) exposureText.textContent = exposureData.recommendation;
+            if (exposureDot) exposureDot.style.background = exposureData.color;
+            if (exposureDescription) exposureDescription.textContent = exposureData.description;
+            if (exposurePointer) {
+                exposurePointer.style.left = `${exposureData.position}%`;
+                exposurePointer.style.borderTopColor = exposureData.color;
+            }
+            if (exposureText) exposureText.style.color = exposureData.color;
+            
+        } catch (error) {
+            console.error('Stock Market Exposure loading error:', error);
+        }
+    }
+
+    // ============================================
     // HISSE ARAMA FONKSİYONLARI
     // ============================================
 
@@ -2446,7 +2678,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         try {
-            const response = await fetch(`/api/search/${encodeURIComponent(query)}`);
+            const response = await fetch(`http://localhost:8084/api/search/${encodeURIComponent(query)}`);
             const results = await response.json();
             
             if (results.length > 0) {

@@ -11,6 +11,225 @@ const cache = new Map();
 // TEKNİK ANALİZ FONKSİYONLARI
 // ============================================
 
+// EMA Trend Analizi (8, 21, 21)
+function calculateEMATrend(prices) {
+    if (!prices || prices.length < 21) return null;
+    
+    const ema8 = calculateEMA(prices, 8);
+    const ema21 = calculateEMA(prices, 21);
+    
+    if (!ema8 || !ema21) return null;
+    
+    const trend = ema8 > ema21 ? 'BULLISH' : 'BEARISH';
+    const strength = Math.abs(ema8 - ema21) / ema21 * 100;
+    
+    return {
+        trend: trend,
+        strength: strength,
+        ema8: ema8,
+        ema21: ema21,
+        signal: ema8 > ema21 ? 'LONG' : 'SHORT'
+    };
+}
+
+// MACD Strategy Analizi
+function calculateMACDStrategy(prices) {
+    if (!prices || prices.length < 26) return null;
+    
+    const ema12 = calculateEMA(prices, 12);
+    const ema26 = calculateEMA(prices, 26);
+    
+    if (!ema12 || !ema26) return null;
+    
+    const macd = ema12 - ema26;
+    const signal = macd > 0 ? 'BULLISH' : 'BEARISH';
+    
+    return {
+        macd: macd,
+        signal: signal,
+        trend: macd > 0 ? 'LONG' : 'SHORT'
+    };
+}
+
+// RSI Bands Analizi
+function calculateRSIBands(prices) {
+    if (!prices || prices.length < 14) return null;
+    
+    const rsi = calculateRSI(prices, 14);
+    if (!rsi) return null;
+    
+    let signal = 'NEUTRAL';
+    if (rsi > 70) signal = 'OVERBOUGHT';
+    else if (rsi < 30) signal = 'OVERSOLD';
+    
+    return {
+        rsi: rsi,
+        signal: signal,
+        trend: rsi > 50 ? 'BULLISH' : 'BEARISH'
+    };
+}
+
+// Uzun Vadeli EMA Analizi (50, 100, 200)
+function calculateLongTermEMA(prices) {
+    if (!prices || prices.length < 200) return null;
+    
+    const ema50 = calculateEMA(prices, 50);
+    const ema100 = calculateEMA(prices, 100);
+    const ema200 = calculateEMA(prices, 200);
+    
+    if (!ema50 || !ema100 || !ema200) return null;
+    
+    // EMA sıralaması kontrolü
+    const isBullishAlignment = ema50 > ema100 && ema100 > ema200;
+    const isBearishAlignment = ema50 < ema100 && ema100 < ema200;
+    
+    let trend = 'NEUTRAL';
+    if (isBullishAlignment) trend = 'STRONG_BULLISH';
+    else if (isBearishAlignment) trend = 'STRONG_BEARISH';
+    else if (ema50 > ema200) trend = 'BULLISH';
+    else if (ema50 < ema200) trend = 'BEARISH';
+    
+    return {
+        ema50: ema50,
+        ema100: ema100,
+        ema200: ema200,
+        trend: trend,
+        alignment: isBullishAlignment ? 'BULLISH' : isBearishAlignment ? 'BEARISH' : 'MIXED'
+    };
+}
+
+// Ana Strateji Analizi - Tüm İndikatörleri Birleştir
+function calculateAdvancedStrategy(prices, currentPrice) {
+    if (!prices || prices.length < 200) return null;
+    
+    // Tüm indikatörleri hesapla
+    const emaTrend = calculateEMATrend(prices);
+    const macdStrategy = calculateMACDStrategy(prices);
+    const rsiBands = calculateRSIBands(prices);
+    const longTermEMA = calculateLongTermEMA(prices);
+    const superTrend = calculateSuperTrend(prices, prices, prices, 10, 2.5);
+    const utBot = calculateUTBot(prices, prices, prices, 10, 3.5);
+    
+    if (!emaTrend || !macdStrategy || !rsiBands || !longTermEMA || !superTrend || !utBot) {
+        return null;
+    }
+    
+    // Strateji Puanlama Sistemi
+    let bullishScore = 0;
+    let bearishScore = 0;
+    let signals = [];
+    
+    // EMA Trend Analizi (Ağırlık: 25%)
+    if (emaTrend.signal === 'LONG') {
+        bullishScore += 25;
+        signals.push('EMA Trend: LONG');
+    } else {
+        bearishScore += 25;
+        signals.push('EMA Trend: SHORT');
+    }
+    
+    // MACD Strategy (Ağırlık: 20%)
+    if (macdStrategy.signal === 'BULLISH') {
+        bullishScore += 20;
+        signals.push('MACD: BULLISH');
+    } else {
+        bearishScore += 20;
+        signals.push('MACD: BEARISH');
+    }
+    
+    // RSI Bands (Ağırlık: 15%)
+    if (rsiBands.signal === 'OVERSOLD') {
+        bullishScore += 15;
+        signals.push('RSI: OVERSOLD (Alım Fırsatı)');
+    } else if (rsiBands.signal === 'OVERBOUGHT') {
+        bearishScore += 15;
+        signals.push('RSI: OVERBOUGHT (Satım Sinyali)');
+    } else {
+        signals.push('RSI: NEUTRAL');
+    }
+    
+    // Uzun Vadeli EMA (Ağırlık: 25%)
+    if (longTermEMA.trend === 'STRONG_BULLISH') {
+        bullishScore += 25;
+        signals.push('Long EMA: STRONG BULLISH');
+    } else if (longTermEMA.trend === 'STRONG_BEARISH') {
+        bearishScore += 25;
+        signals.push('Long EMA: STRONG BEARISH');
+    } else if (longTermEMA.trend === 'BULLISH') {
+        bullishScore += 15;
+        signals.push('Long EMA: BULLISH');
+    } else if (longTermEMA.trend === 'BEARISH') {
+        bearishScore += 15;
+        signals.push('Long EMA: BEARISH');
+    } else {
+        signals.push('Long EMA: NEUTRAL');
+    }
+    
+    // SuperTrend (Ağırlık: 10%)
+    if (superTrend.trend === 'LONG') {
+        bullishScore += 10;
+        signals.push('SuperTrend: LONG');
+    } else {
+        bearishScore += 10;
+        signals.push('SuperTrend: SHORT');
+    }
+    
+    // UT Bot (Ağırlık: 5%)
+    if (utBot.trend === 'LONG') {
+        bullishScore += 5;
+        signals.push('UT Bot: LONG');
+    } else {
+        bearishScore += 5;
+        signals.push('UT Bot: SHORT');
+    }
+    
+    // Genel Trend Belirleme
+    let overallTrend = 'NEUTRAL';
+    let confidence = Math.abs(bullishScore - bearishScore);
+    
+    if (bullishScore > bearishScore + 20) {
+        overallTrend = 'STRONG_BULLISH';
+    } else if (bullishScore > bearishScore + 10) {
+        overallTrend = 'BULLISH';
+    } else if (bearishScore > bullishScore + 20) {
+        overallTrend = 'STRONG_BEARISH';
+    } else if (bearishScore > bullishScore + 10) {
+        overallTrend = 'BEARISH';
+    }
+    
+    // Güçlü Sinyal Kontrolü
+    const strongSignals = [];
+    if (longTermEMA.trend === 'STRONG_BULLISH' && emaTrend.signal === 'LONG' && superTrend.trend === 'LONG') {
+        strongSignals.push('GÜÇLÜ SİNYAL: Long EMA + EMA Trend + SuperTrend = LONG');
+    }
+    if (longTermEMA.trend === 'STRONG_BEARISH' && emaTrend.signal === 'SHORT' && superTrend.trend === 'SHORT') {
+        strongSignals.push('GÜÇLÜ SİNYAL: Long EMA + EMA Trend + SuperTrend = SHORT');
+    }
+    if (macdStrategy.signal === 'BULLISH' && rsiBands.signal === 'OVERSOLD') {
+        strongSignals.push('GÜÇLÜ SİNYAL: MACD + RSI Oversold = Alım Fırsatı');
+    }
+    if (macdStrategy.signal === 'BEARISH' && rsiBands.signal === 'OVERBOUGHT') {
+        strongSignals.push('GÜÇLÜ SİNYAL: MACD + RSI Overbought = Satım Sinyali');
+    }
+    
+    return {
+        overallTrend: overallTrend,
+        confidence: confidence,
+        bullishScore: bullishScore,
+        bearishScore: bearishScore,
+        signals: signals,
+        strongSignals: strongSignals,
+        indicators: {
+            emaTrend: emaTrend,
+            macdStrategy: macdStrategy,
+            rsiBands: rsiBands,
+            longTermEMA: longTermEMA,
+            superTrend: superTrend,
+            utBot: utBot
+        }
+    };
+}
+
 // EMA (Exponential Moving Average) hesapla
 function calculateEMA(prices, period) {
     if (!prices || prices.length < period) return null;
@@ -1445,6 +1664,9 @@ function performTechnicalAnalysis(ohlcData) {
     const { opens, highs, lows, closes, volumes } = ohlcData;
     const currentPrice = closes[closes.length - 1];
     
+    // YENİ GELİŞMİŞ STRATEJİ ANALİZİ
+    const advancedStrategy = calculateAdvancedStrategy(closes, currentPrice);
+    
     // EMA'lar (kısa, orta ve uzun vadeli)
     const ema21 = calculateEMA(closes, 21);
     const ema50 = calculateEMA(closes, 50);
@@ -1504,11 +1726,61 @@ function performTechnicalAnalysis(ohlcData) {
         }
     }
     
-    // UZUN VADELİ ALIM/SATIM FİYATLARI
+    // UZUN VADELİ ALIM/SATIM FİYATLARI - GELİŞMİŞ STRATEJİ TABANLI
     let buyPrice, sellPrice, stopLoss, takeProfit;
     let buyReason = [];
     let sellReason = [];
     let signals = [];
+    
+    // GELİŞMİŞ STRATEJİ ALIM/SATIM KURALLARI
+    const strategyBuyConditions = [];
+    const strategySellConditions = [];
+    
+    // Gelişmiş Strateji Analizi
+    if (advancedStrategy) {
+        const strategy = advancedStrategy;
+        
+        // ALIM KOŞULLARI
+        if (strategy.overallTrend === 'STRONG_BULLISH' || strategy.overallTrend === 'BULLISH') {
+            strategyBuyConditions.push(`Gelişmiş Strateji: ${strategy.overallTrend} (Güven: ${strategy.confidence}%)`);
+            
+            // Güçlü sinyaller varsa ekstra alım fırsatı
+            if (strategy.strongSignals && strategy.strongSignals.length > 0) {
+                strategy.strongSignals.forEach(signal => {
+                    if (signal.includes('LONG') || signal.includes('Alım Fırsatı')) {
+                        strategyBuyConditions.push(`⚡ ${signal}`);
+                    }
+                });
+            }
+        }
+        
+        // SATIM KOŞULLARI
+        if (strategy.overallTrend === 'STRONG_BEARISH' || strategy.overallTrend === 'BEARISH') {
+            strategySellConditions.push(`Gelişmiş Strateji: ${strategy.overallTrend} (Güven: ${strategy.confidence}%)`);
+            
+            // Güçlü sinyaller varsa ekstra satım sinyali
+            if (strategy.strongSignals && strategy.strongSignals.length > 0) {
+                strategy.strongSignals.forEach(signal => {
+                    if (signal.includes('SHORT') || signal.includes('Satım Sinyali')) {
+                        strategySellConditions.push(`⚡ ${signal}`);
+                    }
+                });
+            }
+        }
+        
+        // STRATEJİ TABANLI FİYAT AYARLAMALARI
+        if (strategy.overallTrend === 'STRONG_BULLISH') {
+            // Güçlü yükseliş trendi - daha agresif alım
+            buyReason.push('🚀 GÜÇLÜ YÜKSELİŞ TRENDİ - Agresif Alım Stratejisi');
+        } else if (strategy.overallTrend === 'STRONG_BEARISH') {
+            // Güçlü düşüş trendi - daha muhafazakar
+            buyReason.push('⚠️ GÜÇLÜ DÜŞÜŞ TRENDİ - Muhafazakar Strateji');
+        } else if (strategy.overallTrend === 'BULLISH') {
+            buyReason.push('📈 Yükseliş Trendi - Normal Alım Stratejisi');
+        } else if (strategy.overallTrend === 'BEARISH') {
+            buyReason.push('📉 Düşüş Trendi - Dikkatli Alım Stratejisi');
+        }
+    }
     
     // EKLEME STRATEJİSİ (Gelişmiş Destek Analizi ile)
     // Güçlü destek seviyelerinde ekleme yap
@@ -1586,6 +1858,21 @@ function performTechnicalAnalysis(ohlcData) {
         if (filteredZoneSupports.length > 0){
             buyPrice = filteredZoneSupports[0].center;
             buyReason.push(`Zone1 (En Yakın): $${filteredZoneSupports[0].center.toFixed(2)} | Türler: ${filteredZoneSupports[0].types.join(', ')} | Skor: ${filteredZoneSupports[0].score.toFixed(1)}`);
+            
+            // GELİŞMİŞ STRATEJİ ALIM FİYAT AYARLAMASI
+            if (advancedStrategy) {
+                const strategy = advancedStrategy;
+                if (strategy.overallTrend === 'STRONG_BULLISH') {
+                    // Güçlü yükseliş trendi - daha agresif alım (daha yüksek fiyat)
+                    buyPrice = Math.min(buyPrice * 1.02, currentPrice * 0.98); // %2 daha yüksek ama güncel fiyatın %98'i altında
+                    buyReason.push(`🚀 Agresif Alım: Strateji güçlü yükseliş trendi (${strategy.confidence}%)`);
+                } else if (strategy.overallTrend === 'STRONG_BEARISH') {
+                    // Güçlü düşüş trendi - daha muhafazakar alım (daha düşük fiyat)
+                    buyPrice = buyPrice * 0.95; // %5 daha düşük
+                    buyReason.push(`⚠️ Muhafazakar Alım: Strateji güçlü düşüş trendi (${strategy.confidence}%)`);
+                }
+            }
+            
             console.log(`[ZONE MODE] Buy1 from zone: ${buyPrice.toFixed(2)}`);
         }
         if (filteredZoneSupports.length > 1){
@@ -1615,9 +1902,9 @@ function performTechnicalAnalysis(ohlcData) {
             buyReason.push(`3. Güçlü Destek: ${validSupports[2].reason} ($${validSupports[2].price.toFixed(2)})`);
         }
     } else {
-        buyPrice = low50;
-        buyReason.push('50 günlük dip seviyesi');
-        console.log(`[EMERGENCY FALLBACK] Using low50: ${buyPrice.toFixed(2)}`);
+        buyPrice = low50 * 0.95; // %5 daha düşük - UZUN VADE
+        buyReason.push('50 günlük dip seviyesi - %5 (UZUN VADE)');
+        console.log(`[EMERGENCY FALLBACK] Using low50*0.95: ${buyPrice.toFixed(2)}`);
     }
     // Ordering guard: ensure secondBuyPrice < buyPrice (daha derin)
     console.log('[BUY LEVELS RAW]', {
@@ -1636,11 +1923,11 @@ function performTechnicalAnalysis(ohlcData) {
             secondBuyPrice = tmp;
             buyReason.push('(Oto Düzeltme: Buy1 > Buy2 kuralı uygulandı)');
         }
-        // Ek koruma: aradaki fark ÇOK küçükse (< %2.5 veya $2.5) ikinci alımı iptal et
-        // Zone mantığı zaten minimum gap (ATR*0.8 veya %3) kontrol ediyor, bu sadece son koruma - UZUN VADE
+        // Ek koruma: aradaki fark ÇOK küçükse (< %8.0 veya $8.0) ikinci alımı iptal et
+        // Zone mantığı zaten minimum gap (ATR*0.8 veya %8) kontrol ediyor, bu sadece son koruma - UZUN VADE
         const gapPct = ((buyPrice - secondBuyPrice) / buyPrice) * 100;
         const gapAbs = buyPrice - secondBuyPrice;
-        if (gapPct < 2.5 || gapAbs < 2.50) {
+        if (gapPct < 8.0 || gapAbs < 8.00) {
             buyReason.push(`(İkinci seviye iptal: Gap çok küçük - ${gapPct.toFixed(2)}% veya $${gapAbs.toFixed(2)})`);
             secondBuyPrice = null;
         }
@@ -1650,14 +1937,14 @@ function performTechnicalAnalysis(ohlcData) {
     if (!secondBuyPrice && validSupports.length > 1) {
         console.log('[FALLBACK] Zone2 yok, validSupports\'tan alternatif aranıyor...');
         // validSupports zaten fiyata göre sıralı (yüksekten düşüğe)
-        // buyPrice'dan düşük ve minimum %2.5 gap olan ilk seviyeyi bul
+        // buyPrice'dan düşük ve minimum %8.0 gap olan ilk seviyeyi bul
         for (let i = 0; i < validSupports.length; i++) {
             const candidate = validSupports[i];
             if (candidate.price < buyPrice) {
                 const gapPct = ((buyPrice - candidate.price) / buyPrice) * 100;
                 const gapAbs = buyPrice - candidate.price;
-                // Minimum %2.5 gap veya $2.5 mutlak fark - UZUN VADE
-                if (gapPct >= 2.5 || gapAbs >= 2.50) {
+                // Minimum %8.0 gap veya $8.0 mutlak fark - UZUN VADE
+                if (gapPct >= 8.0 || gapAbs >= 8.00) {
                     secondBuyPrice = candidate.price;
                     buyReason.push(`2. Alım (Alternatif): ${candidate.reason} - Gap: ${gapPct.toFixed(2)}%`);
                     console.log(`[FALLBACK] Alternatif bulundu: $${secondBuyPrice.toFixed(2)} (gap: ${gapPct.toFixed(2)}%)`);
@@ -1707,12 +1994,13 @@ function performTechnicalAnalysis(ohlcData) {
         resistanceLevels.push({ price: bb.upper, reason: 'Bollinger üst bandı', strength: 1.5 });
     }
     
-    // 50 günlük en yüksek + %2-10 (güçlü direnç bölgesi)
+    // 50 günlük en yüksek + %5-25 (güçlü direnç bölgesi) - UZUN VADE
     // Uzun vadede HER ZAMAN hedef olarak ekle (fiyat üzerinde olsa bile)
-    resistanceLevels.push({ price: high50 * 1.02, reason: '50 günlük zirve + %2', strength: 2.2 });
-    resistanceLevels.push({ price: high50 * 1.05, reason: '50 günlük zirve + %5', strength: 2 });
-    resistanceLevels.push({ price: high50 * 1.10, reason: '50 günlük zirve + %10', strength: 1.8 });
-    resistanceLevels.push({ price: high50 * 1.15, reason: '50 günlük zirve + %15', strength: 1.5 });
+    resistanceLevels.push({ price: high50 * 1.05, reason: '50 günlük zirve + %5', strength: 2.5 });
+    resistanceLevels.push({ price: high50 * 1.10, reason: '50 günlük zirve + %10', strength: 2.2 });
+    resistanceLevels.push({ price: high50 * 1.15, reason: '50 günlük zirve + %15', strength: 2.0 });
+    resistanceLevels.push({ price: high50 * 1.20, reason: '50 günlük zirve + %20', strength: 1.8 });
+    resistanceLevels.push({ price: high50 * 1.25, reason: '50 günlük zirve + %25', strength: 1.5 });
     
     // Fibonacci extension levels (güçlü kar al bölgeleri) - HER ZAMAN EKLE
     if (advancedSR?.fibLevels) {
@@ -1750,9 +2038,9 @@ function performTechnicalAnalysis(ohlcData) {
     
     // CLUSTER: Yakın dirençleri birleştir (desteklerde yaptığımız gibi)
     const clusteredResistances = [];
-    const minResistanceGap = currentPrice * 0.040; // %4.0 minimum gap (UZUN VADE - anlamlı hedefler)
-    // Dinamik absolute gap: Düşük fiyatlı hisseler için daha düşük ($15 hisse için $0.60, $200 hisse için $5)
-    const absoluteMinGap = Math.min(5.00, Math.max(0.50, currentPrice * 0.015)); // Min $0.50, max $5.00, veya %1.5
+    const minResistanceGap = currentPrice * 0.080; // %8.0 minimum gap (UZUN VADE - anlamlı hedefler)
+    // Dinamik absolute gap: Düşük fiyatlı hisseler için daha düşük ($15 hisse için $1.20, $200 hisse için $8)
+    const absoluteMinGap = Math.min(8.00, Math.max(1.00, currentPrice * 0.030)); // Min $1.00, max $8.00, veya %3.0
     
     console.log(`Resistance clustering: minGap=${minResistanceGap.toFixed(2)} (${((minResistanceGap/currentPrice)*100).toFixed(1)}%), absMinGap=$${absoluteMinGap.toFixed(2)}`);
     
@@ -1842,6 +2130,20 @@ function performTechnicalAnalysis(ohlcData) {
         sellPrice = clusteredResistances[0].price;
         sellReason.push(`Kısmi satış: ${clusteredResistances[0].reason}`);
         
+        // GELİŞMİŞ STRATEJİ SATIM FİYAT AYARLAMASI
+        if (advancedStrategy) {
+            const strategy = advancedStrategy;
+            if (strategy.overallTrend === 'STRONG_BULLISH') {
+                // Güçlü yükseliş trendi - daha yüksek hedefler
+                sellPrice = sellPrice * 1.05; // %5 daha yüksek hedef
+                sellReason.push(`🚀 Yüksek Hedef: Strateji güçlü yükseliş trendi (${strategy.confidence}%)`);
+            } else if (strategy.overallTrend === 'STRONG_BEARISH') {
+                // Güçlü düşüş trendi - daha düşük hedefler
+                sellPrice = sellPrice * 0.95; // %5 daha düşük hedef
+                sellReason.push(`⚠️ Düşük Hedef: Strateji güçlü düşüş trendi (${strategy.confidence}%)`);
+            }
+        }
+        
         // İkinci ve üçüncü direnç hedefleri
         if (clusteredResistances.length > 1) {
             sellReason.push(`2. Hedef: ${clusteredResistances[1].reason} ($${clusteredResistances[1].price.toFixed(2)})`);
@@ -1850,15 +2152,39 @@ function performTechnicalAnalysis(ohlcData) {
             sellReason.push(`3. Güçlü Direnç: ${clusteredResistances[2].reason} ($${clusteredResistances[2].price.toFixed(2)})`);
         }
     } else {
-        sellPrice = high50 * 1.15;
-        sellReason.push('50 günlük zirve + %15');
+        sellPrice = high50 * 1.20;
+        sellReason.push('50 günlük zirve + %20 (UZUN VADE)');
     }
     
     // STOP LOSS (Uzun vade için çok geniş - sadece felaket senaryosu)
     stopLoss = ema200 ? ema200 * 0.90 : buyPrice * 0.85;  // EMA200'ün %10 altı veya alışın %15 altı
     
+    // GELİŞMİŞ STRATEJİ STOP LOSS AYARLAMASI
+    if (advancedStrategy) {
+        const strategy = advancedStrategy;
+        if (strategy.overallTrend === 'STRONG_BULLISH') {
+            // Güçlü yükseliş trendi - daha sıkı stop loss
+            stopLoss = Math.max(stopLoss, buyPrice * 0.92); // %8 stop loss
+        } else if (strategy.overallTrend === 'STRONG_BEARISH') {
+            // Güçlü düşüş trendi - daha geniş stop loss
+            stopLoss = Math.min(stopLoss, buyPrice * 0.80); // %20 stop loss
+        }
+    }
+    
     // TAKE PROFIT (Kısmi satış için - tümünü satma)
     takeProfit = sellPrice * 1.05; // İlk hedefin %5 üstü (ikinci kısmi satış)
+    
+    // GELİŞMİŞ STRATEJİ TAKE PROFIT AYARLAMASI
+    if (advancedStrategy) {
+        const strategy = advancedStrategy;
+        if (strategy.overallTrend === 'STRONG_BULLISH') {
+            // Güçlü yükseliş trendi - daha yüksek take profit
+            takeProfit = takeProfit * 1.10; // %10 daha yüksek hedef
+        } else if (strategy.overallTrend === 'STRONG_BEARISH') {
+            // Güçlü düşüş trendi - daha düşük take profit
+            takeProfit = takeProfit * 0.95; // %5 daha düşük hedef
+        }
+    }
     
     // BUY & HOLD STRATEJİSİ İÇİN SİNYALLER
     
@@ -1989,7 +2315,9 @@ function performTechnicalAnalysis(ohlcData) {
             obv: obv, // YENİ - Hacim divergence tespiti
             high50: high50,
             low50: low50,
-            pricePosition: pricePosition
+            pricePosition: pricePosition,
+            // YENİ GELİŞMİŞ STRATEJİ
+            advancedStrategy: advancedStrategy
         },
         signals: {
             overall: longTermTrend,
