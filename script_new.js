@@ -1,4 +1,7 @@
-﻿document.addEventListener('DOMContentLoaded', async () => {
+﻿// Global değişkenler
+let stocks = [];
+
+document.addEventListener('DOMContentLoaded', async () => {
     const stockInput = document.getElementById('stock-input');
     const addStockBtn = document.getElementById('add-stock-btn');
     const stockContainer = document.getElementById('stock-container');
@@ -187,19 +190,57 @@
         });
     }
     
+    // Helper: normalize Google photo URL to a fixed size and no auth requirements
+    function normalizePhotoUrl(url) {
+        if (!url) return null;
+        try {
+            // Handle Google profile photos
+            if (url.includes('googleusercontent.com')) {
+                // If it already has size param like =s96-c, force s64-c for compact avatar
+                if (url.includes('=s')) {
+                    return url.replace(/=s\d+-c.*/i, '=s64-c');
+                }
+                // Else, append size parameter
+                const u = new URL(url);
+                u.searchParams.set('sz', '64');
+                return u.toString();
+            }
+            return url;
+        } catch (_) {
+            return url;
+        }
+    }
+
     // Show user profile in header
     function showUserProfile(user) {
         console.log('📸 showUserProfile called with:', user);
         if (userProfile && userAvatar) {
             userProfile.style.display = 'flex';
-            userAvatar.src = user.photoURL || 'https://via.placeholder.com/40';
+            const photoUrl = normalizePhotoUrl(user.photoURL);
+            userAvatar.referrerPolicy = 'no-referrer';
+            userAvatar.crossOrigin = 'anonymous';
+            userAvatar.src = photoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'User')}&background=3498db&color=fff&size=64&rounded=true`;
+            // Fallback on error
+            userAvatar.onerror = () => {
+                userAvatar.onerror = null;
+                userAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'User')}&background=3498db&color=fff&size=64&rounded=true`;
+            };
             userAvatar.style.display = 'block';
             
             const menuAvatar = document.getElementById('user-menu-avatar');
             const menuName = document.getElementById('user-menu-name');
             const menuEmail = document.getElementById('user-menu-email');
             
-            if (menuAvatar) menuAvatar.src = user.photoURL || 'https://via.placeholder.com/40';
+            if (menuAvatar) {
+                const menuUrl = normalizePhotoUrl(user.photoURL);
+                menuAvatar.referrerPolicy = 'no-referrer';
+                menuAvatar.crossOrigin = 'anonymous';
+                menuAvatar.src = menuUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'User')}&background=3498db&color=fff&size=64&rounded=true`;
+                menuAvatar.onerror = () => {
+                    menuAvatar.onerror = null;
+                    menuAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || 'User')}&background=3498db&color=fff&size=64&rounded=true`;
+                };
+            }
             if (menuName) menuName.textContent = user.displayName || 'User';
             if (menuEmail) menuEmail.textContent = user.email || '';
             
@@ -224,8 +265,6 @@
     let currentTimeframe = '1d';
     let tradingViewChart = null;
     let searchTimeout = null;
-
-    let stocks = [];
     let sortableInstance = null;
     let favorites = [];
     let updateInterval = null;
@@ -620,7 +659,7 @@
     // Reset order button
     const resetOrderBtn = document.getElementById('reset-order-btn');
     resetOrderBtn.addEventListener('click', () => {
-        if (confirm('Hisselerin sıralamasını alfabetik düzene göre sıfırlamak istediğinize emin misiniz?')) {
+        if (confirm('Hisseleri alfabetik sıraya göre düzenlemek istediğinize emin misiniz? (Favoriler önce gelecek)')) {
             resetToAlphabeticalOrder();
         }
     });
@@ -842,6 +881,7 @@
                     previousCloseRaw: combinedMeta.previousClose,
                     marketState: combinedMeta.marketState,
                     technicalAnalysis: combinedMeta.technicalAnalysis || null, // Add technical analysis
+                    analystTargets: data.analystTargets || null, // Add analyst targets
                     _lastUpdate: Date.now()
                 };
 
@@ -1332,17 +1372,17 @@
         }
         
         taPanel.innerHTML = `
-            <div class="ta-header" style="background: linear-gradient(135deg, rgba(52, 152, 219, 0.15), rgba(41, 128, 185, 0.05)); padding: 10px; border-radius: 10px; margin-bottom: 10px;">
+            <div class="ta-header">
                 <div style="text-align: center; margin-bottom: 8px;">
-                    <div style="font-size: 1.3em; margin-bottom: 2px;">${trendEmoji}</div>
-                    <div style="font-size: 0.9em; font-weight: 700; color: ${trendColor}; margin-bottom: 4px;">${trendText}</div>
-                    <div style="font-size: 1.05em; color: #fff; font-weight: 600;">${currency}${ta.currentPrice.toFixed(2)}</div>
+                    <div style="font-size: 1.2em; margin-bottom: 2px;">${trendEmoji}</div>
+                    <div style="font-size: 0.85em; font-weight: 700; color: ${trendColor}; margin-bottom: 3px;">${trendText}</div>
+                    <div style="font-size: 1em; color: #fff; font-weight: 600;">${currency}${ta.currentPrice.toFixed(2)}</div>
                 </div>
                 ${stockTypeDisplay ? `
-                <div class="tooltip-container" style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 8px; margin-top: 8px; border: 1px solid rgba(255,255,255,0.1); cursor: help; position: relative;">
-                    <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
-                        <span style="font-size: 1.1em;">${stockTypeEmoji}</span>
-                        <span style="font-size: 0.8em; color: ${stockTypeColor}; font-weight: 600;">${stockTypeDisplay.replace('_', ' ')}</span>
+                <div class="tooltip-container" style="background: rgba(0,0,0,0.2); padding: 6px; border-radius: 6px; margin-top: 6px; border: 1px solid rgba(255,255,255,0.1); cursor: help; position: relative;">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                        <span style="font-size: 1em;">${stockTypeEmoji}</span>
+                        <span style="font-size: 0.75em; color: ${stockTypeColor}; font-weight: 600;">${stockTypeDisplay.replace('_', ' ')}</span>
                     </div>
                     <div class="tooltip" style="width: 280px;">
                         <strong>Hisse Profili: ${stockTypeDisplay.replace('_', ' ')}</strong><br/>
@@ -1350,12 +1390,10 @@
                     </div>
                 </div>
                 ` : ''}
-                <div style="text-align: center; margin-bottom: 8px;">
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px;">
-                    <div class="tooltip-container" style="background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 5px; cursor: help; position: relative;">
-                        <div style="font-size: 0.7em; color: #888; margin-bottom: 3px;">SuperTrend</div>
-                        <div style="font-size: 0.85em; color: ${superTrendColor}; font-weight: 600;">${superTrendText}</div>
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; margin-top: 8px;">
+                    <div class="tooltip-container" style="background: rgba(0,0,0,0.3); padding: 5px 6px; border-radius: 4px; cursor: help; position: relative;">
+                        <div style="font-size: 0.65em; color: #888; margin-bottom: 2px;">SuperTrend</div>
+                        <div style="font-size: 0.8em; color: ${superTrendColor}; font-weight: 600;">${superTrendText}</div>
                         <div class="tooltip" style="width: 220px;">
                             <strong>SuperTrend - ${superTrendText}</strong><br/>
                             ${superTrendText === 'Yükseliş' ? '✅ Kısa vadeli alım sinyali. Pozisyon tutmaya devam edebilir veya ekleme yapabilirsiniz.' : 
@@ -1363,9 +1401,9 @@
                               '⏸️ Nötr durum. Trend bekleniyor, aceleci hareket etmeyin.'}
                         </div>
                     </div>
-                    <div class="tooltip-container" style="background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 5px; cursor: help; position: relative;">
-                        <div style="font-size: 0.7em; color: #888; margin-bottom: 3px;">UT Bot</div>
-                        <div style="font-size: 0.85em; color: ${utBotColor}; font-weight: 600;">${utBotText}</div>
+                    <div class="tooltip-container" style="background: rgba(0,0,0,0.3); padding: 5px 6px; border-radius: 4px; cursor: help; position: relative;">
+                        <div style="font-size: 0.65em; color: #888; margin-bottom: 2px;">UT Bot</div>
+                        <div style="font-size: 0.8em; color: ${utBotColor}; font-weight: 600;">${utBotText}</div>
                         <div class="tooltip" style="width: 220px;">
                             <strong>UT Bot - ${utBotText}</strong><br/>
                             ${utBotText === 'Yükseliş' ? '✅ Ana trend pozitif. Uzun vadeli pozisyon tutmak için güvenli sinyal.' : 
@@ -1373,9 +1411,9 @@
                               '⏸️ Nötr trend. Ana yön belirsiz, sabırlı olun.'}
                         </div>
                     </div>
-                    <div class="tooltip-container" style="background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 5px; cursor: help; position: relative;">
-                        <div style="font-size: 0.7em; color: #888; margin-bottom: 3px;">OBV</div>
-                        <div style="font-size: 0.85em; color: ${obvColor}; font-weight: 600;">${obvText}</div>
+                    <div class="tooltip-container" style="background: rgba(0,0,0,0.3); padding: 5px 6px; border-radius: 4px; cursor: help; position: relative;">
+                        <div style="font-size: 0.65em; color: #888; margin-bottom: 2px;">OBV</div>
+                        <div style="font-size: 0.8em; color: ${obvColor}; font-weight: 600;">${obvText}</div>
                         <div class="tooltip" style="width: 220px;">
                             <strong>OBV - ${obvText}</strong><br/>
                             ${obvText === 'Yükseliş Sinyali' ? '💚 Fiyat düşüyor ama hacim yükseliyor - erken alım fırsatı!' : 
@@ -1383,9 +1421,9 @@
                               '➡️ Normal hacim-fiyat ilişkisi. Özel sinyal yok.'}
                         </div>
                     </div>
-                    <div class="tooltip-container" style="background: rgba(0,0,0,0.3); padding: 6px 8px; border-radius: 5px; cursor: help; position: relative;">
-                        <div style="font-size: 0.7em; color: #888; margin-bottom: 3px;">MACD</div>
-                        <div style="font-size: 0.85em; color: ${macdColor}; font-weight: 600;">${macdText}</div>
+                    <div class="tooltip-container" style="background: rgba(0,0,0,0.3); padding: 5px 6px; border-radius: 4px; cursor: help; position: relative;">
+                        <div style="font-size: 0.65em; color: #888; margin-bottom: 2px;">MACD</div>
+                        <div style="font-size: 0.8em; color: ${macdColor}; font-weight: 600;">${macdText}</div>
                         <div class="tooltip" style="width: 220px;">
                             <strong>MACD - ${macdText}</strong><br/>
                             ${macdText === 'Altın Kesişim (AL)' ? '🚀 Güçlü alım sinyali! MACD çizgisi sinyal çizgisini yukarı kesti - momentum pozitif.' : 
@@ -1396,47 +1434,50 @@
                 </div>
             </div>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-                <div class="ta-simple-section" style="background: rgba(0, 255, 136, 0.08); border: 2px solid rgba(0, 255, 136, 0.3); padding: 10px; border-radius: 8px;">
-                    <div class="ta-simple-title" style="font-size: 0.75em; font-weight: 700; color: #00ff88; margin-bottom: 4px;">🎯 1. Alım</div>
-                    <div class="ta-simple-price buy" style="font-size: 1.15em; font-weight: 800; color: #00ff88; margin-bottom: 3px;">${currency}${rec.buyPrice ? rec.buyPrice.toFixed(2) : 'N/A'}</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                <div class="ta-simple-section" style="background: rgba(0, 255, 136, 0.08); border: 2px solid rgba(0, 255, 136, 0.3); padding: 8px; border-radius: 6px;">
+                    <div class="ta-simple-title" style="font-size: 0.7em; font-weight: 700; color: #00ff88; margin-bottom: 3px;">🎯 1. Alım</div>
+                    <div class="ta-simple-price buy" style="font-size: 1em; font-weight: 800; color: #00ff88; margin-bottom: 2px;">${currency}${rec.buyPrice ? rec.buyPrice.toFixed(2) : 'N/A'}</div>
                     ${rec.secondBuyPrice ? `
-                        <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(0, 255, 136, 0.2);">
-                            <div style="font-size: 0.65em; color: #888;">2. Alım (Derin): <span style="color: #00ff88; font-weight: 600;">${currency}${rec.secondBuyPrice.toFixed(2)}</span></div>
+                        <div style="margin-top: 3px; padding-top: 3px; border-top: 1px solid rgba(0, 255, 136, 0.2);">
+                            <div style="font-size: 0.6em; color: #888;">2. Hedef: <span style="color: #00ff88; font-weight: 600;">${currency}${rec.secondBuyPrice.toFixed(2)}</span></div>
                         </div>
                     ` : (rec.advancedLevels && Array.isArray(rec.advancedLevels.support) && rec.advancedLevels.support.length > 1 && rec.advancedLevels.support[1].price < rec.buyPrice ? `
-                        <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(0, 255, 136, 0.2);">
-                            <div style="font-size: 0.65em; color: #888;">2. Alım (Alternatif): <span style="color: #00ff88; font-weight: 600;">${currency}${rec.advancedLevels.support[1].price.toFixed(2)}</span></div>
+                        <div style="margin-top: 3px; padding-top: 3px; border-top: 1px solid rgba(0, 255, 136, 0.2);">
+                            <div style="font-size: 0.6em; color: #888;">2. Alım: <span style="color: #00ff88; font-weight: 600;">${currency}${rec.advancedLevels.support[1].price.toFixed(2)}</span></div>
                         </div>
                     ` : '')}
                 </div>
                 
-                <div class="ta-simple-section" style="background: rgba(255, 107, 107, 0.08); border: 2px solid rgba(255, 107, 107, 0.3); padding: 10px; border-radius: 8px;">
-                    <div class="ta-simple-title" style="font-size: 0.75em; font-weight: 700; color: #ff6b6b; margin-bottom: 4px;">💰 1. Satış</div>
-                    <div class="ta-simple-price sell" style="font-size: 1.15em; font-weight: 800; color: #ff6b6b; margin-bottom: 3px;">${currency}${rec.sellPrice ? rec.sellPrice.toFixed(2) : 'N/A'}</div>
+                <div class="ta-simple-section" style="background: rgba(255, 107, 107, 0.08); border: 2px solid rgba(255, 107, 107, 0.3); padding: 8px; border-radius: 6px;">
+                    <div class="ta-simple-title" style="font-size: 0.7em; font-weight: 700; color: #ff6b6b; margin-bottom: 3px;">💰 1. Satış</div>
+                    <div class="ta-simple-price sell" style="font-size: 1em; font-weight: 800; color: #ff6b6b; margin-bottom: 2px;">${currency}${rec.sellPrice ? rec.sellPrice.toFixed(2) : 'N/A'}</div>
                     ${rec.advancedLevels && Array.isArray(rec.advancedLevels.resistance) && rec.advancedLevels.resistance.length > 1 ? `
-                        <div style="margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(255, 107, 107, 0.2);">
-                            <div style="font-size: 0.65em; color: #888;">2. Hedef: <span style="color: #ff6b6b; font-weight: 600;">${currency}${rec.advancedLevels.resistance[1].price.toFixed(2)}</span></div>
+                        <div style="margin-top: 3px; padding-top: 3px; border-top: 1px solid rgba(255, 107, 107, 0.2);">
+                            <div style="font-size: 0.6em; color: #888;">2. Hedef: <span style="color: #ff6b6b; font-weight: 600;">${currency}${rec.advancedLevels.resistance[1].price.toFixed(2)}</span></div>
                         </div>
                     ` : ''}
                 </div>
             </div>
             
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-                <div style="background: rgba(255, 255, 255, 0.03); padding: 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08);">
-                    <div style="font-size: 0.7em; color: #888; margin-bottom: 4px; font-weight: 600;">⚠️ Stop Loss</div>
-                    <div style="font-size: 1em; color: #ff4444; font-weight: 700;">${currency}${rec.stopLoss.toFixed(2)}</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
+                <div style="background: rgba(255, 255, 255, 0.03); padding: 6px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <div style="font-size: 0.65em; color: #888; margin-bottom: 3px; font-weight: 600;">⚠️ Stop Loss</div>
+                    <div style="font-size: 0.9em; color: #ff4444; font-weight: 700;">${currency}${rec.stopLoss.toFixed(2)}</div>
                 </div>
                 
-                <div style="background: rgba(255, 255, 255, 0.03); padding: 8px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.08);">
-                    <div style="font-size: 0.7em; color: #888; margin-bottom: 4px; font-weight: 600;">📊 RSI (14)</div>
-                    <div style="font-size: 1em; color: ${rsiColor}; font-weight: 700;">${ind.rsi ? ind.rsi.toFixed(1) : 'N/A'}</div>
+                <div style="background: rgba(255, 255, 255, 0.03); padding: 6px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.08);">
+                    <div style="font-size: 0.65em; color: #888; margin-bottom: 3px; font-weight: 600;">📊 RSI (14)</div>
+                    <div style="font-size: 0.9em; color: ${rsiColor}; font-weight: 700;">${ind.rsi ? ind.rsi.toFixed(1) : 'N/A'}</div>
                 </div>
             </div>
             
             ${sig.messages && sig.messages.length > 0 ? `
-            <div class="ta-signals" style="background: rgba(52, 152, 219, 0.08); padding: 10px; border-radius: 8px; border: 1px solid rgba(52, 152, 219, 0.2);">
-                <div class="ta-signals-title" style="font-size: 0.8em; font-weight: 700; color: #3498db; margin-bottom: 6px;">📢 Aktif Sinyaller</div>
+            <div class="ta-signals" style="background: rgba(52, 152, 219, 0.08); padding: 8px; border-radius: 8px; border: 1px solid rgba(52, 152, 219, 0.2);">
+                <div class="ta-signals-title" style="font-size: 0.75em; font-weight: 700; color: #3498db; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                    <span>📢</span>
+                    <span>Aktif Sinyaller</span>
+                </div>
                 ${sig.messages.map(msg => {
                     let bgColor = 'rgba(255, 255, 255, 0.03)';
                     let borderColor = 'rgba(255, 255, 255, 0.08)';
@@ -1447,8 +1488,38 @@
                         bgColor = 'rgba(255, 68, 68, 0.08)';
                         borderColor = 'rgba(255, 68, 68, 0.2)';
                     }
-                    return `<div class="ta-signal-item" style="padding: 6px 8px; background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 5px; margin-bottom: 4px; font-size: 0.75em; line-height: 1.3;">${msg}</div>`;
+                    return `<div class="ta-signal-item" style="padding: 6px 8px; background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 4px; margin-bottom: 4px; font-size: 0.7em; line-height: 1.3;">${msg}</div>`;
                 }).join('')}
+            </div>` : ''}
+            
+            ${stock.analystTargets ? `
+            <div class="analyst-targets" style="background: linear-gradient(135deg, rgba(155, 89, 182, 0.08), rgba(142, 68, 173, 0.05)); padding: 8px; border-radius: 8px; border: 1px solid rgba(155, 89, 182, 0.2);">
+                <div class="analyst-targets-title" style="font-size: 0.75em; font-weight: 700; color: #9b59b6; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;">
+                    <span>🎯</span>
+                    <span>Profesyonel Analist Hedefleri</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                    <div style="background: rgba(0, 0, 0, 0.2); padding: 6px; border-radius: 6px; text-align: center;">
+                        <div style="font-size: 0.65em; color: #888; margin-bottom: 2px; font-weight: 600;">Ortalama</div>
+                        <div style="font-size: 0.8em; color: #9b59b6; font-weight: 700;">${currency}${stock.analystTargets.targetMeanPrice ? stock.analystTargets.targetMeanPrice.toFixed(2) : 'N/A'}</div>
+                    </div>
+                    <div style="background: rgba(0, 0, 0, 0.2); padding: 6px; border-radius: 6px; text-align: center;">
+                        <div style="font-size: 0.65em; color: #888; margin-bottom: 2px; font-weight: 600;">Yüksek</div>
+                        <div style="font-size: 0.8em; color: #2ecc71; font-weight: 700;">${currency}${stock.analystTargets.targetHighPrice ? stock.analystTargets.targetHighPrice.toFixed(2) : 'N/A'}</div>
+                    </div>
+                    <div style="background: rgba(0, 0, 0, 0.2); padding: 6px; border-radius: 6px; text-align: center;">
+                        <div style="font-size: 0.65em; color: #888; margin-bottom: 2px; font-weight: 600;">Düşük</div>
+                        <div style="font-size: 0.8em; color: #e74c3c; font-weight: 700;">${currency}${stock.analystTargets.targetLowPrice ? stock.analystTargets.targetLowPrice.toFixed(2) : 'N/A'}</div>
+                    </div>
+                </div>
+                ${stock.analystTargets.numberOfAnalystOpinions ? `
+                <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(155, 89, 182, 0.2); text-align: center;">
+                    <div style="font-size: 0.65em; color: #9b59b6;">
+                        <span>👥 ${stock.analystTargets.numberOfAnalystOpinions} Analist</span>
+                        ${stock.analystTargets.recommendationKey ? ` • <span style="color: #f39c12;">${stock.analystTargets.recommendationKey.toUpperCase()}</span>` : ''}
+                    </div>
+                </div>
+                ` : ''}
             </div>` : ''}
         `;
     }
@@ -2154,6 +2225,14 @@
     const globalLegendBtn = document.getElementById('global-legend-btn');
     const globalLegendModal = document.getElementById('global-legend-modal');
     const globalLegendClose = document.getElementById('global-legend-close');
+    
+    // Market Analysis Modal Event Listeners
+    const marketAnalysisBtn = document.getElementById('market-analysis-btn');
+    const marketAnalysisModal = document.getElementById('market-analysis-modal');
+    const marketAnalysisClose = document.getElementById('market-analysis-close');
+    
+    // MAG7 Button
+    const mag7Btn = document.getElementById('mag7-btn');
 
     if(globalLegendBtn){
         globalLegendBtn.addEventListener('click', () => {
@@ -2171,11 +2250,71 @@
         });
     }
 
+    // Market Analysis Modal Event Listeners
+    if(marketAnalysisBtn){
+        marketAnalysisBtn.addEventListener('click', () => {
+            if(marketAnalysisModal){
+                marketAnalysisModal.style.display = 'flex';
+            }
+        });
+    }
+
+    if(marketAnalysisClose){
+        marketAnalysisClose.addEventListener('click', () => {
+            if(marketAnalysisModal){
+                marketAnalysisModal.style.display = 'none';
+            }
+        });
+    }
+
     if(globalLegendModal){
         globalLegendModal.addEventListener('click', (e) => {
             if(e.target === globalLegendModal){
                 globalLegendModal.style.display = 'none';
             }
+        });
+    }
+
+    if(marketAnalysisModal){
+        marketAnalysisModal.addEventListener('click', (e) => {
+            if(e.target === marketAnalysisModal){
+                marketAnalysisModal.style.display = 'none';
+            }
+        });
+    }
+
+    // MAG7 Function - Add all MAG7 stocks automatically
+    function addMAG7Stocks() {
+        const mag7Stocks = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'META', 'NVDA'];
+        let addedCount = 0;
+        let alreadyExistsCount = 0;
+        
+        mag7Stocks.forEach(symbol => {
+            // Check if stock already exists
+            const existingStock = stocks.find(stock => stock.symbol === symbol);
+            if (existingStock) {
+                alreadyExistsCount++;
+                console.log(`📋 ${symbol} zaten listede mevcut`);
+            } else {
+                // Add stock using existing addStock function
+                addStock(symbol);
+                addedCount++;
+                console.log(`✅ ${symbol} MAG7 listesine eklendi`);
+            }
+        });
+        
+        // Show notification
+        if (addedCount > 0) {
+            showNotification(`🎯 ${addedCount} MAG7 hissesi eklendi! ${alreadyExistsCount > 0 ? `(${alreadyExistsCount} zaten mevcuttu)` : ''}`, 'success');
+        } else if (alreadyExistsCount > 0) {
+            showNotification(`ℹ️ Tüm MAG7 hisseleri zaten listede mevcut!`, 'info');
+        }
+    }
+
+    // MAG7 Button Event Listener
+    if(mag7Btn){
+        mag7Btn.addEventListener('click', () => {
+            addMAG7Stocks();
         });
     }
 
@@ -2187,6 +2326,9 @@
             }
             if (strategyModal && strategyModal.style.display === 'flex') {
                 strategyModal.style.display = 'none';
+            }
+            if (marketAnalysisModal && marketAnalysisModal.style.display === 'flex') {
+                marketAnalysisModal.style.display = 'none';
             }
         }
     });
@@ -2228,6 +2370,7 @@
     }
 
     function restoreOriginalOrder() {
+        console.log('Restoring to original order...');
         const stockCards = Array.from(stockContainer.children);
         
         stockCards.sort((a, b) => {
@@ -2251,7 +2394,7 @@
             sortLosersBtn.classList.add('active');
             sortResetBtn.style.display = 'flex';
         } else {
-            sortResetBtn.classList.add('active');
+            // Manual mode - hide reset button and don't add active class
             sortResetBtn.style.display = 'none';
         }
     }
